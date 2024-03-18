@@ -1,0 +1,99 @@
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+.idea
+cmake-build-debug
+
+# Vscode
+.vscode
+
+# Build
+build
+
+# Vim swap file
+*.swp
+
+# log
+log.c
+*.log
+
+# binary
+//bin
+!frontend/cmd/
+
+# trace
+trace
+
+# LDBC source
+social_network*
+
+# tmp
+tmp*
+.cache
+
+# load scrip
+load_script
+
+# protobuf
+*.pb.cc
+*.pb.h
+
+# pycache
+__pycache__
+
+# Local config
+cfg
+
+# throughput
+*.cdf
+*.query
+
+# devcontainer
+.devcontainer
+
+# deps
+deps2/install
+deps2/src
+
+#cmake-remote
+cmake-build-remote
+cmake-build-release
+cmake-build-debug-remote-host
+
+
+# regression log file
+*.gs_log
+*.ms_log
+*.cn_log
+
+.clangd
