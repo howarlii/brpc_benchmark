@@ -66,7 +66,7 @@ def draw(payload_size):
     ax1.plot(parallelisms, attachment_lantencys[payload_size], marker='o', label='attachment', color='b')
     ax1.plot(parallelisms, proto_lantencys[payload_size], marker='o', label='proto', color='r')
     if(payload_size in streaming_lantencys):
-        ax1.plot(parallelisms, streaming_lantencys[payload_size], marker='o', label='streaming', color='r')
+        ax1.plot(parallelisms, streaming_lantencys[payload_size], marker='o', label='streaming', color='g')
     ax1.set_xlabel('Parallelisms')
     ax1.set_ylabel('Latency (ms)')
     ax1.set_title('99% Latency bewteen different method')
@@ -77,7 +77,7 @@ def draw(payload_size):
     ax2.plot(parallelisms, attachment_speed[payload_size], marker='^', label='attachment', color='b')
     ax2.plot(parallelisms, proto_speed[payload_size], marker='^', label='proto', color='r')
     if(payload_size in streaming_speed):
-        ax2.plot(parallelisms, streaming_speed[payload_size], marker='^', label='streaming', color='r')
+        ax2.plot(parallelisms, streaming_speed[payload_size], marker='^', label='streaming', color='g')
     ax2.set_xlabel('Parallelisms')
     ax2.set_ylabel('throughput (MB)')
     ax2.set_title('throughput bewteen different method')
