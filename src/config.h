@@ -6,25 +6,20 @@
 #include <string>
 
 struct BenchmarkConfig {
-  int parallelism = 4;           // Number of threads to send requests
-  int client_request_num = 1000; // Client request number
+  int parallelism = 4;       // Number of threads to send requests
+  int benchmark_time = 1000; // Client request number
+  int req_size = 100'000;    // Size of attachment
+  int resp_size = 100'000;   // Size of attachment
 
   // ==== attachment settings ====
-  bool use_attachment = false;        // Whether to use attachment
-  int attachment_req_size = 100'000;  // Size of attachment
-  int attachment_resp_size = 100'000; // Size of attachment
+  bool use_attachment = false; // Whether to use attachment
 
   // ===== proto settings =====
   bool use_proto_bytes = false;
-  int proto_req_data_size_byte =
-      100'000; // Carry so many byte data along with requests
-  int proto_resp_data_size_byte =
-      100'000; // Carry so many byte data along with respone
 
   // ===== streaming settings =====
-  bool use_streaming = false;          // Whether to use streaming
-  int stream_client_msg_size = 10'000; // message size for streaming
-  int stream_client_msg_num = 10;      // message number for streaming
+  bool use_streaming = false; // Whether to use streaming
+  int stream_client_msg_size = 10'000;
 
   // ===== channel settings =====
   bool use_parallel_channel = false; // Whether to use parallel channel
@@ -51,37 +46,30 @@ struct BenchmarkConfig {
   int rpc_timeout_ms = 1'000'000; // RPC timeout in milliseconds
 
   int rpc_max_retry = 3; // Max retries(not including the first RPC)
-} default_config;
+};
+
+static const BenchmarkConfig default_config;
 
 DEFINE_int32(parallelism, default_config.parallelism,
              "Number of threads to send requests");
-DEFINE_int32(client_request_num, default_config.client_request_num,
+DEFINE_int32(benchmark_time, default_config.benchmark_time,
              "Client request number");
+DEFINE_int32(req_size, default_config.req_size, "Size of request payload");
+DEFINE_int32(resp_size, default_config.resp_size, "Size of respone payload");
 
 // ==== attachment settings ====
 DEFINE_bool(use_attachment, default_config.use_attachment,
             "Whether to use attachment");
-DEFINE_int32(attachment_req_size, default_config.attachment_req_size,
-             "Size of attachment");
-DEFINE_int32(attachment_resp_size, default_config.attachment_resp_size,
-             "Size of attachment");
 
 // ===== proto settings =====
 DEFINE_bool(use_proto_bytes, default_config.use_proto_bytes,
             "Whether to use proto bytes");
-DEFINE_int32(proto_req_data_size_byte, default_config.proto_req_data_size_byte,
-             "Carry so many byte data along with requests");
-DEFINE_int32(proto_resp_data_size_byte,
-             default_config.proto_resp_data_size_byte,
-             "Carry so many byte data along with response");
 
 // ===== streaming settings =====
 DEFINE_bool(use_streaming, default_config.use_streaming,
             "Whether to use streaming");
 DEFINE_int32(stream_client_msg_size, default_config.stream_client_msg_size,
-             "Message size for streaming");
-DEFINE_int32(stream_client_msg_num, default_config.stream_client_msg_num,
-             "Message number for streaming");
+             "Streaming message size");
 
 // ==== rpc protocol settings ====
 DEFINE_string(rpc_protocol, default_config.rpc_protocol,
@@ -96,22 +84,19 @@ inline BenchmarkConfig parseCommandLine(int argc, char **argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   BenchmarkConfig config;
   config.parallelism = FLAGS_parallelism;
-  config.client_request_num = FLAGS_client_request_num;
+  config.benchmark_time = FLAGS_benchmark_time;
+  config.req_size = FLAGS_req_size;
+  config.resp_size = FLAGS_resp_size;
 
   // ==== attachment settings ====
   config.use_attachment = FLAGS_use_attachment;
-  config.attachment_req_size = FLAGS_attachment_req_size;
-  config.attachment_resp_size = FLAGS_attachment_resp_size;
 
   // ===== proto settings =====
   config.use_proto_bytes = FLAGS_use_proto_bytes;
-  config.proto_req_data_size_byte = FLAGS_proto_req_data_size_byte;
-  config.proto_resp_data_size_byte = FLAGS_proto_resp_data_size_byte;
 
   // ===== streaming settings =====
   config.use_streaming = FLAGS_use_streaming;
   config.stream_client_msg_size = FLAGS_stream_client_msg_size;
-  config.stream_client_msg_num = FLAGS_stream_client_msg_num;
 
   // ===== rpc protocol settings =====
   config.rpc_protocol = FLAGS_rpc_protocol;

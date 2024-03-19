@@ -32,25 +32,15 @@
 class StreamReceiver : public brpc::StreamInputHandler {
 public:
   explicit StreamReceiver(example::EchoRequest request)
-      : request_(std::move(request)) {}
+      : request_(std::move(request)) {
+    data_.reserve(request_.streaming_size());
+  }
 
   int on_received_messages(brpc::StreamId id, butil::IOBuf *const messages[],
                            size_t size) final {
-    if (seq_ + size > request_.hash_size()) {
-      LOG(INFO) << fmt::format("ERROR! seq + size > request_.hash_size(). seq: "
-                               "{}, size: {}, request_.hash_size(): {}",
-                               seq_, size, request_.hash_size());
-      seq_ += size;
-      return -1;
-    }
 
     for (size_t i = 0; i < size; ++i, seq_++) {
-      if (std::hash<std::string>{}(messages[i]->to_string()) !=
-          request_.hash()[seq_]) {
-        LOG(INFO) << fmt::format(
-            "QWQ request data hash not match!  data len: {} hash: {}",
-            messages[i]->size(), request_.hash()[seq_]);
-      }
+      data_.append(messages[i]->to_string());
     }
     // LOG(INFO) << "Received from Stream=" << id << ": " << os.str();
     return 0;
@@ -62,17 +52,21 @@ public:
 
   void on_closed(brpc::StreamId id) final {
     std::unique_ptr<StreamReceiver> self_guard(this);
-    if (seq_ != request_.hash_size()) {
-      LOG(INFO) << fmt::format("ERROR! seq != request_.hash_size() when close. "
-                               "seq: {}, request_.hash_size(): {}",
-                               seq_, request_.hash_size());
+    CHECK_EQ(data_.size(), request_.streaming_size()) << fmt::format(
+        "QWQ request data size not match!  real len: {}, expect length:{}",
+        data_.size(), request_.streaming_size());
+    if (std::hash<std::string>{}(data_) != request_.hash()) {
+      LOG(INFO) << fmt::format(
+          "QWQ request data hash not match!  data len: {} hash: {}",
+          request_.streaming_size(), request_.hash());
     }
   }
 
 private:
+  std::string data_;
   int seq_{0};
   // brpc::StreamId stream_id_{brpc::INVALID_STREAM_ID};
-  example::EchoRequest request_;
+  const example::EchoRequest request_;
 };
 
 // Your implementation of example::EchoService
@@ -90,10 +84,10 @@ public:
 
     // ==== check request
     if (request->has_proto_bytes_size()) {
-      CHECK_EQ(std::hash<std::string>{}(request->data()), request->hash()[0])
+      CHECK_EQ(std::hash<std::string>{}(request->data()), request->hash())
           << fmt::format(
                  "QWQ request data hash not match!  data len: {} hash: {}",
-                 request->data().size(), request->hash()[0]);
+                 request->data().size(), request->hash());
     }
 
     if (request->has_streaming_size()) {
@@ -112,28 +106,13 @@ public:
       // LOG(INFO) << fmt::format("revicec attachment size: {}",
       // cntl->request_attachment().size());
       CHECK_EQ(std::hash<std::string>{}(cntl->request_attachment().to_string()),
-               request->hash()[0])
+               request->hash())
           << fmt::format("QWQ request attachment size: {}",
                          cntl->request_attachment().size());
     }
 
-    // ===== send respone
-    response->set_seq(request->seq());
-
-    if (config_.use_proto_bytes && config_.proto_resp_data_size_byte > 0) {
-      response->set_proto_bytes_size(config_.proto_resp_data_size_byte);
-      auto data = response->mutable_data();
-      generateRandomString(*data, config_.proto_resp_data_size_byte);
-      response->mutable_hash()->Add(std::hash<std::string>{}(*data));
-      // LOG(INFO)<< "qwertyuio   "<< response->hash()[0];
-    }
-
-    if (config_.use_attachment && config_.attachment_resp_size > 0) {
-      response->set_attachment_size(config_.attachment_resp_size);
-      std::string data;
-      generateRandomString(data, config_.attachment_resp_size);
-      cntl->response_attachment().append(std::move(data));
-    }
+    // Fill in respone
+    response->set_hash(123);
   }
 
   void AskEcho(google::protobuf::RpcController *cntl_base,
@@ -144,21 +123,19 @@ public:
     auto *cntl = static_cast<brpc::Controller *>(cntl_base);
 
     // ===== send respone
-    response->set_seq(request->seq());
-
     if (request->has_proto_bytes_size()) {
       auto size = request->proto_bytes_size();
       response->set_proto_bytes_size(size);
       auto data = response->mutable_data();
       generateRandomString(*data, size);
-      response->mutable_hash()->Add(std::hash<std::string>{}(*data));
+      response->set_hash(std::hash<std::string>{}(*data));
     } else if (request->has_attachment_size()) {
       auto size = request->attachment_size();
       response->set_attachment_size(size);
       std::string data;
       generateRandomString(data, size);
       cntl->response_attachment().append(std::move(data));
-      response->mutable_hash()->Add(std::hash<std::string>{}(data));
+      response->set_hash(std::hash<std::string>{}(data));
     } else {
       CHECK(false) << "unsupport request type";
     }

@@ -26,28 +26,25 @@
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 
-#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <memory>
 #include <thread>
 
-#include "brpc_client.h"
+#include "brpc_client_sync.h"
 #include "config.h"
 #include "proto/echo.pb.h"
 #include "util.h"
 
 class ClientBenchmarker {
-public:
-  explicit ClientBenchmarker(BenchmarkConfig config = BenchmarkConfig())
-      : config_(std::move(config)) {}
+ public:
+  explicit ClientBenchmarker(BenchmarkConfig config = BenchmarkConfig()) : config_(std::move(config)) {}
 
   void init() {
     brpc::ChannelOptions channel_options;
     channel_options.protocol = config_.rpc_protocol;
     if (config_.use_streaming) {
-      CHECK_EQ(config_.rpc_protocol, "baidu_std")
-          << "RPC protocol must be baidu_std when enable streaming";
+      CHECK_EQ(config_.rpc_protocol, "baidu_std") << "RPC protocol must be baidu_std when enable streaming";
     }
     channel_options.max_retry = config_.rpc_max_retry;
     channel_options.timeout_ms = config_.rpc_timeout_ms;
@@ -66,31 +63,24 @@ public:
         auto sub_channel = new brpc::Channel;
         // Initialize the channel, nullptr means using default options.
         // options, see `brpc/channel.h'.
-        if (sub_channel->Init(config_.server_addr.c_str(),
-                              config_.load_balancer.c_str(),
-                              &channel_options) != 0) {
+        if (sub_channel->Init(config_.server_addr.c_str(), config_.load_balancer.c_str(), &channel_options) != 0) {
           LOG(ERROR) << "Fail to initialize sub_channel[" << i << "]";
           exit(-1);
         }
-        if (p_channel_.AddChannel(sub_channel, brpc::OWNS_CHANNEL, nullptr,
-                                  nullptr) != 0) {
+        if (p_channel_.AddChannel(sub_channel, brpc::OWNS_CHANNEL, nullptr, nullptr) != 0) {
           LOG(ERROR) << "Fail to AddChannel, i=" << i;
           exit(-1);
         }
       }
       for (int i = 0; i < num_channel_; ++i) {
-        recorder_.sub_channel_latency.emplace_back(
-            std::make_unique<bvar::LatencyRecorder>());
-        recorder_.sub_channel_latency.back()->expose(
-            fmt::format("client_sub_{}", i));
+        recorder_.sub_channel_latency.emplace_back(std::make_unique<bvar::LatencyRecorder>());
+        recorder_.sub_channel_latency.back()->expose(fmt::format("client_sub_{}", i));
       }
     } else {
       num_channel_ = 1;
       // LOG(INFO) << "use single channel, channel_num=" << num_channel_;
       channel_ = std::make_unique<brpc::Channel>();
-      if (channel_->Init(config_.server_addr.c_str(),
-                         config_.load_balancer.c_str(),
-                         &channel_options) != 0) {
+      if (channel_->Init(config_.server_addr.c_str(), config_.load_balancer.c_str(), &channel_options) != 0) {
         LOG(ERROR) << "Fail to initialize channel";
         exit(-1);
       }
@@ -105,6 +95,7 @@ public:
         return std::make_unique<example::EchoService_Stub>(channel_.get());
       }
     };
+    auto benchmark_time = std::chrono::milliseconds(config_.benchmark_time);
 
     if (!config_.use_bthread) {
       for (auto i = 0; i < config_.parallelism; ++i) {
@@ -114,13 +105,11 @@ public:
         c->registeDoneCallBack([this]() { running_cnt_--; });
         running_cnt_++;
         if (is_req_bench) {
-          jthreads_.emplace_back([stub = get_stub(), c, this]() mutable {
-            c->runReqBench(std::move(stub), config_.client_request_num);
-          });
+          jthreads_.emplace_back(
+              [stub = get_stub(), c, benchmark_time]() mutable { c->runReqBench(std::move(stub), benchmark_time); });
         } else {
-          jthreads_.emplace_back([stub = get_stub(), c, this]() mutable {
-            c->runRespBench(std::move(stub), config_.client_request_num);
-          });
+          jthreads_.emplace_back(
+              [stub = get_stub(), c, benchmark_time]() mutable { c->runRespBench(std::move(stub), benchmark_time); });
         }
       }
     } else {
@@ -145,15 +134,31 @@ public:
     }
     return bytes;
   }
-  auto &getConfig() const { return config_; }
 
-  auto &getRecorder() { return recorder_.getRecorder(); }
+  auto getSentBPS() const {
+    double bytes{0};
+    for (const auto &c : clients_) {
+      bytes += c->getSentBPS();
+    }
+    return bytes;
+  }
+  auto getRecievedBPS() const {
+    double bytes{0};
+    for (const auto &c : clients_) {
+      bytes += c->getRecievedBPS();
+    }
+    return bytes;
+  }
+
+  auto &getRecorder() const { return recorder_; }
+
+  auto &getConfig() const { return config_; }
 
   int getRunningSender() const { return running_cnt_; }
 
   void join() { jthreads_.clear(); }
 
-private:
+ private:
   BenchmarkConfig config_;
 
   int num_channel_;
@@ -168,63 +173,31 @@ private:
   std::vector<std::unique_ptr<Client>> clients_;
 };
 
-void testParallel(BenchmarkConfig config, int max_parallel = 32) {
-  double up_payload_size = 16;
-  double down_payload_size = 16;
-
-  if (config.use_attachment) {
-    up_payload_size += config.attachment_req_size;
-    down_payload_size += config.attachment_resp_size;
-  }
-  if (config.use_proto_bytes) {
-    up_payload_size += config.proto_req_data_size_byte;
-    down_payload_size += config.proto_resp_data_size_byte;
-  }
-  if (config.use_streaming) {
-    up_payload_size +=
-        (config.stream_client_msg_size + 8ll) * config.stream_client_msg_num -
-        8;
-  }
-
-  up_payload_size /= 1 << 20;
-  down_payload_size /= 1 << 20;
-
-  LOG(INFO) << fmt::format(
-      "=> client_request_num: {} payload size   up:{:.2f}MB,  down: {:.2f}MB",
-      config.client_request_num, up_payload_size, down_payload_size);
-  for (auto parallel = 1; parallel <= max_parallel && !brpc::IsAskedToQuit();
-       parallel <<= 1) {
+void BenchmarkThisConfigForParallel(BenchmarkConfig config, int max_parallel = 32) {
+  LOG(INFO) << fmt::format("=>  payload size {}", config.req_size);
+  for (auto parallel = 1; parallel <= max_parallel && !brpc::IsAskedToQuit(); parallel <<= 1) {
     config.parallelism = parallel;
-    g_stop = false;
+
     ClientBenchmarker tester(config);
     tester.init();
-
-    tester.start(false);
-
-    auto run_second = 2;
-    std::this_thread::sleep_for(std::chrono::seconds(run_second));
-
-    auto &recorder = tester.getRecorder();
-    double sent_mb = tester.getSentBytes() * 1.0 / (1 << 20) / run_second;
-    int64_t qps = recorder.qps(1);
-
-    if (tester.getRunningSender() != config.parallelism) {
-      LOG(INFO) << "WARNING! some sender might finished. running_sender: "
-                << tester.getRunningSender()
-                << "  parallelism: " << config.parallelism;
-    }
-    g_stop = true;
+    tester.start();
 
     while (tester.getRunningSender() && !brpc::IsAskedToQuit()) {
       std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
     tester.join();
 
-    double recieved_mb =
-        tester.getRecievedBytes() * 1.0 / (1 << 20) / run_second;
+    auto &recorder = tester.getRecorder();
+    auto latency = recorder.latency_recorder.latency_percentile(.99);
+    int64_t qps = recorder.latency_recorder.qps();
+
+    auto sent_mbps = tester.getSentBPS() / (1 << 20);
+    // auto recieved_mbps = tester.getRecievedBPS() / (1 << 20);
+
     LOG(INFO) << fmt::format(
-        "   parallelism {}:   qps: {}, up/down_speed: {:.2f}MB/S {:.2f}MB/S",
-        parallel, qps, sent_mb, recieved_mb);
+        "   parallelism {:2d}:   lantency: {:4d},  qps: {:4d} "
+        "speed: {:4.2f}MB/S ",
+        parallel, latency, qps, sent_mbps);
   }
   LOG(INFO);
 }
@@ -234,17 +207,17 @@ int main(int argc, char *argv[]) {
 
   LOG(INFO) << "use attachment:";
   config.use_attachment = true;
-  testParallel(config);
+  BenchmarkThisConfigForParallel(config);
   config.use_attachment = false;
 
   LOG(INFO) << "use proto:";
   config.use_proto_bytes = true;
-  testParallel(config);
+  BenchmarkThisConfigForParallel(config);
   config.use_proto_bytes = false;
 
   LOG(INFO) << "use streaming:";
   config.use_streaming = true;
-  testParallel(config);
+  BenchmarkThisConfigForParallel(config);
   config.use_streaming = false;
 
   return 0;

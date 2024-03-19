@@ -8,8 +8,6 @@
 #include <limits>
 #include <random>
 
-std::atomic<bool> g_stop{false};
-
 struct PreformanceRecorder {
   void output() {
     LOG(INFO) << "Sending EchoRequest at qps=" << latency_recorder.qps(1)

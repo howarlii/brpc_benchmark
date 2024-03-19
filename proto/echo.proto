@@ -27,8 +27,7 @@ message EchoRequest {
     int32 streaming_size = 3;
   }
 
-  required int32 seq = 4;
-  repeated uint64 hash = 5;
+  required uint64 hash = 5;
   optional bytes data = 6;
 };
 
@@ -39,8 +38,7 @@ message EchoResponse {
     int32 streaming_size = 3;
   }
 
-  required int32 seq = 4;
-  repeated uint64 hash = 5;
+  required uint64 hash = 5;
   optional bytes data = 6;
 };
 
