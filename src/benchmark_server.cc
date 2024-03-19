@@ -30,15 +30,12 @@
 #include "util.h"
 
 class StreamReceiver : public brpc::StreamInputHandler {
-public:
-  explicit StreamReceiver(example::EchoRequest request)
-      : request_(std::move(request)) {
+ public:
+  explicit StreamReceiver(example::EchoRequest request) : request_(std::move(request)) {
     data_.reserve(request_.streaming_size());
   }
 
-  int on_received_messages(brpc::StreamId id, butil::IOBuf *const messages[],
-                           size_t size) final {
-
+  int on_received_messages(brpc::StreamId id, butil::IOBuf *const messages[], size_t size) final {
     for (size_t i = 0; i < size; ++i, seq_++) {
       data_.append(messages[i]->to_string());
     }
@@ -52,17 +49,17 @@ public:
 
   void on_closed(brpc::StreamId id) final {
     std::unique_ptr<StreamReceiver> self_guard(this);
-    CHECK_EQ(data_.size(), request_.streaming_size()) << fmt::format(
-        "QWQ request data size not match!  real len: {}, expect length:{}",
-        data_.size(), request_.streaming_size());
+    if (data_.size() != request_.streaming_size()) {
+      LOG(INFO) << fmt::format("QWQ request data size not match!  real len: {}, expect length:{}", data_.size(),
+                               request_.streaming_size());
+    }
     if (std::hash<std::string>{}(data_) != request_.hash()) {
-      LOG(INFO) << fmt::format(
-          "QWQ request data hash not match!  data len: {} hash: {}",
-          request_.streaming_size(), request_.hash());
+      LOG(INFO) << fmt::format("QWQ request data hash not match!  data len: {} hash: {}", request_.streaming_size(),
+                               request_.hash());
     }
   }
 
-private:
+ private:
   std::string data_;
   int seq_{0};
   // brpc::StreamId stream_id_{brpc::INVALID_STREAM_ID};
@@ -71,23 +68,18 @@ private:
 
 // Your implementation of example::EchoService
 class EchoServiceImpl : public example::EchoService {
-public:
-  explicit EchoServiceImpl(BenchmarkConfig config)
-      : config_(std::move(config)) {}
+ public:
+  explicit EchoServiceImpl(BenchmarkConfig config) : config_(std::move(config)) {}
 
-  void Echo(google::protobuf::RpcController *cntl_base,
-            const example::EchoRequest *request,
-            example::EchoResponse *response,
-            google::protobuf::Closure *done) override {
+  void Echo(google::protobuf::RpcController *cntl_base, const example::EchoRequest *request,
+            example::EchoResponse *response, google::protobuf::Closure *done) override {
     brpc::ClosureGuard done_guard(done);
     auto *cntl = static_cast<brpc::Controller *>(cntl_base);
 
     // ==== check request
     if (request->has_proto_bytes_size()) {
-      CHECK_EQ(std::hash<std::string>{}(request->data()), request->hash())
-          << fmt::format(
-                 "QWQ request data hash not match!  data len: {} hash: {}",
-                 request->data().size(), request->hash());
+      CHECK_EQ(std::hash<std::string>{}(request->data()), request->hash()) << fmt::format(
+          "QWQ request data hash not match!  data len: {} hash: {}", request->data().size(), request->hash());
     }
 
     if (request->has_streaming_size()) {
@@ -105,20 +97,16 @@ public:
     if (request->has_attachment_size()) {
       // LOG(INFO) << fmt::format("revicec attachment size: {}",
       // cntl->request_attachment().size());
-      CHECK_EQ(std::hash<std::string>{}(cntl->request_attachment().to_string()),
-               request->hash())
-          << fmt::format("QWQ request attachment size: {}",
-                         cntl->request_attachment().size());
+      CHECK_EQ(std::hash<std::string>{}(cntl->request_attachment().to_string()), request->hash())
+          << fmt::format("QWQ request attachment size: {}", cntl->request_attachment().size());
     }
 
     // Fill in respone
     response->set_hash(123);
   }
 
-  void AskEcho(google::protobuf::RpcController *cntl_base,
-               const example::EchoRequest *request,
-               example::EchoResponse *response,
-               google::protobuf::Closure *done) override {
+  void AskEcho(google::protobuf::RpcController *cntl_base, const example::EchoRequest *request,
+               example::EchoResponse *response, google::protobuf::Closure *done) override {
     brpc::ClosureGuard done_guard(done);
     auto *cntl = static_cast<brpc::Controller *>(cntl_base);
 
@@ -141,18 +129,17 @@ public:
     }
   }
 
-private:
+ private:
   BenchmarkConfig config_;
 };
 
 class Server {
-public:
+ public:
   explicit Server(BenchmarkConfig config = BenchmarkConfig())
       : config_(std::move(config)), echo_service_impl_(config_) {}
 
   void init() {
-    if (server_.AddService(&echo_service_impl_,
-                           brpc::SERVER_DOESNT_OWN_SERVICE) != 0) {
+    if (server_.AddService(&echo_service_impl_, brpc::SERVER_DOESNT_OWN_SERVICE) != 0) {
       LOG(ERROR) << "Fail to add service";
       exit(-1);
     }
@@ -168,7 +155,7 @@ public:
 
   void join() { server_.RunUntilAskedToQuit(); }
 
-private:
+ private:
   BenchmarkConfig config_;
   // Generally you only need one Server.
   brpc::Server server_;

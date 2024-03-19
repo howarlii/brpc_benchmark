@@ -10,12 +10,10 @@
 
 struct PreformanceRecorder {
   void output() {
-    LOG(INFO) << "Sending EchoRequest at qps=" << latency_recorder.qps(1)
-              << " latency=" << latency_recorder.latency(1);
+    LOG(INFO) << "Sending EchoRequest at qps=" << latency_recorder.qps(1) << " latency=" << latency_recorder.latency(1);
 
     for (int i = 0; i < sub_channel_latency.size(); ++i) {
-      LOG(INFO) << "sub_channel latency_" << i << "="
-                << sub_channel_latency[i]->latency(1);
+      LOG(INFO) << "sub_channel latency_" << i << "=" << sub_channel_latency[i]->latency(1);
     }
   }
 
@@ -30,8 +28,7 @@ template <typename AppendableT>
 void generateRandomString(AppendableT &str, int length) {
   std::random_device rd;
   std::mt19937 gen(rd());
-  std::uniform_int_distribution<uint64_t> dis_i64(
-      0, std::numeric_limits<uint64_t>::max());
+  std::uniform_int_distribution<uint64_t> dis_i64(0, std::numeric_limits<uint64_t>::max());
   std::uniform_int_distribution<uint8_t> dis(0, 255);
   str.clear();
   str.reserve(length);
@@ -46,3 +43,12 @@ void generateRandomString(AppendableT &str, int length) {
   }
   assert(str.size() == length);
 };
+
+template <typename S, typename T>
+void StreamOutPythonArray(S &out, const T &a) {
+  out << '[';
+  for (auto &e : a) {
+    out << e << ", ";
+  }
+  out << ']' << std::endl;
+}

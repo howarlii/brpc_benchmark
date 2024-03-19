@@ -28,6 +28,8 @@
 
 #include <atomic>
 #include <chrono>
+#include <fstream>
+#include <iostream>
 #include <memory>
 #include <thread>
 
@@ -173,8 +175,12 @@ class ClientBenchmarker {
   std::vector<std::unique_ptr<Client>> clients_;
 };
 
-void BenchmarkThisConfigForParallel(BenchmarkConfig config, int max_parallel = 32) {
-  LOG(INFO) << fmt::format("=>  payload size {}", config.req_size);
+void BenchmarkThisConfigForParallel(const std::string &target_text, BenchmarkConfig config, int max_parallel = 64) {
+  std::vector<int> parallelisms;
+  std::vector<double> lantencys;
+  std::vector<double> speeds;
+
+  LOG(INFO) << fmt::format("{}  payload size {}", target_text, config.req_size);
   for (auto parallel = 1; parallel <= max_parallel && !brpc::IsAskedToQuit(); parallel <<= 1) {
     config.parallelism = parallel;
 
@@ -188,36 +194,68 @@ void BenchmarkThisConfigForParallel(BenchmarkConfig config, int max_parallel = 3
     tester.join();
 
     auto &recorder = tester.getRecorder();
-    auto latency = recorder.latency_recorder.latency_percentile(.99);
+    auto latency_ms = recorder.latency_recorder.latency_percentile(.99) / 1e3;
     int64_t qps = recorder.latency_recorder.qps();
 
     auto sent_mbps = tester.getSentBPS() / (1 << 20);
     // auto recieved_mbps = tester.getRecievedBPS() / (1 << 20);
 
     LOG(INFO) << fmt::format(
-        "   parallelism {:2d}:   lantency: {:4d},  qps: {:4d} "
+        "   parallelism {:2d}:   lantency: {:4.2f},  qps: {:4d} "
         "speed: {:4.2f}MB/S ",
-        parallel, latency, qps, sent_mbps);
+        parallel, latency_ms, qps, sent_mbps);
+
+    parallelisms.emplace_back(parallel);
+    lantencys.emplace_back(latency_ms);
+    speeds.emplace_back(sent_mbps);
   }
   LOG(INFO);
+
+  {
+    std::string prefix;
+    std::string suffix;
+    if (config.req_size >= (1 << 20)) {
+      prefix = fmt::format("{}_", target_text);
+      suffix = fmt::format("[\"{}m\"]", config.req_size >> 20);
+    } else if (config.req_size >= (1 << 10)) {
+      prefix = fmt::format("{}_", target_text);
+      suffix = fmt::format("[\"{}k\"]", config.req_size >> 10);
+    } else {
+      prefix = fmt::format("{}_", target_text);
+      suffix = fmt::format("[\"{}m\"]", config.req_size);
+    }
+
+    std::ofstream outfile("result.txt", std::ios::app);
+    CHECK(outfile.is_open());
+
+    outfile << fmt::format("# {}  payload size {}\n", target_text, config.req_size);
+
+    // outfile << fmt::format("{}parallelisms{} = ", prefix, suffix);
+    // StreamOutPythonArray(outfile, parallelisms);
+    outfile << fmt::format("{}lantencys{} = ", prefix, suffix);
+    StreamOutPythonArray(outfile, lantencys);
+    outfile << fmt::format("{}speed{} = ", prefix, suffix);
+    StreamOutPythonArray(outfile, speeds);
+    outfile << std::endl;
+
+    // Close the file
+    outfile.close();
+  }
 }
 
 int main(int argc, char *argv[]) {
   auto config = parseCommandLine(argc, argv);
 
-  LOG(INFO) << "use attachment:";
   config.use_attachment = true;
-  BenchmarkThisConfigForParallel(config);
+  BenchmarkThisConfigForParallel("attachment", config);
   config.use_attachment = false;
 
-  LOG(INFO) << "use proto:";
   config.use_proto_bytes = true;
-  BenchmarkThisConfigForParallel(config);
+  BenchmarkThisConfigForParallel("proto", config);
   config.use_proto_bytes = false;
 
-  LOG(INFO) << "use streaming:";
   config.use_streaming = true;
-  BenchmarkThisConfigForParallel(config);
+  BenchmarkThisConfigForParallel("streaming", config);
   config.use_streaming = false;
 
   return 0;
