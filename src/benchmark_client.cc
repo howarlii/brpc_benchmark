@@ -181,7 +181,7 @@ void BenchmarkThisConfigForParallel(const std::string &target_text, BenchmarkCon
   std::vector<double> speeds;
 
   LOG(INFO) << fmt::format("{}  payload size {}", target_text, config.req_size);
-  for (auto parallel = 1; parallel <= max_parallel && !brpc::IsAskedToQuit(); parallel <<= 1) {
+  for (auto parallel = 1; parallel <= max_parallel && !brpc::IsAskedToQuit(); parallel += 5) {
     config.parallelism = parallel;
 
     ClientBenchmarker tester(config);
