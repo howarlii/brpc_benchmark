@@ -50,8 +50,8 @@ class Client {
 
       if (config_->use_streaming) {
         if (brpc::StreamCreate(&stream_id, cntl, nullptr) != 0) {
-          LOG(ERROR) << "Fail to create stream";
-          std::this_thread::sleep_for(std::chrono::milliseconds(100));
+          LOG(WARNING) << "Fail to create stream";
+          std::this_thread::sleep_for(std::chrono::milliseconds(10));
           continue;
         }
         request.set_streaming_size(req_size_);
@@ -99,7 +99,14 @@ class Client {
           auto size = std::min(config_->stream_client_msg_size, req_size_ - tot_size);
 
           stream_data.append(data.data() + tot_size, size);
-          CHECK_EQ(0, brpc::StreamWrite(stream_id, stream_data));
+          while (auto ret = brpc::StreamWrite(stream_id, stream_data)) {
+            if (ret == EAGAIN) {
+              std::this_thread::sleep_for(std::chrono::milliseconds(1));
+              continue;
+            } else {
+              CHECK_EQ(0, 1) << "Fail to write stream";
+            }
+          }
           stream_data.clear();
         }
         brpc::StreamClose(stream_id);

@@ -64,9 +64,9 @@ if(ENABLE_CCACHE
 endif()
 
 # ----------------------------------------------------------------------
-# Setup dependency install path. The path is determined by deps2/vars.sh (avoid hard-code twice)
+# Setup dependency install path. The path is determined by deps/vars.sh (avoid hard-code twice)
 execute_process(
-  COMMAND bash -c "source ${PROJECT_SOURCE_DIR}/deps2/vars.sh && echo -n $DEPS_INSTALL_DIR"
+  COMMAND bash -c "source ${PROJECT_SOURCE_DIR}/deps/vars.sh && echo -n $DEPS_INSTALL_DIR"
   OUTPUT_VARIABLE DEPS_INSTALL
   RESULT_VARIABLE DEPS_INSTALL_CMD_STATUS
 )

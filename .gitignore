@@ -82,14 +82,13 @@ cfg
 .devcontainer
 
 # deps
-deps2/install
-deps2/src
+deps/install
+deps/src
 
 #cmake-remote
 cmake-build-remote
 cmake-build-release
 cmake-build-debug-remote-host
-
 
 # regression log file
 *.gs_log

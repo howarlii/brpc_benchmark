@@ -175,22 +175,71 @@ class ClientBenchmarker {
   std::vector<std::unique_ptr<Client>> clients_;
 };
 
-void BenchmarkThisConfigForParallel(const std::string &target_text, BenchmarkConfig config, int max_parallel = 64) {
-  std::vector<int> parallelisms;
+class ResultArrayOutputer {
+ public:
+  void outputPython(const std::string &target_text, const std::string &x_tag, int num) {
+    std::string prefix;
+    std::string suffix;
+    prefix = fmt::format("{}_", target_text);
+    suffix = fmt::format(R"(["{}"]["{}"])", x_tag, shortTheNum(num));
+
+    std::ofstream outfile("result/brpc_result.txt", std::ios::app);
+    CHECK(outfile.is_open());
+
+    outfile << fmt::format("# {}  payload size {}\n", target_text, num);
+
+    static bool is_first = true;
+    if (is_first) {
+      is_first = false;
+      outfile << fmt::format("x_axis[\"{}\"] = ", x_tag, prefix, suffix);
+      StreamOutPythonArray(outfile, x_axis);
+    }
+
+    outfile << fmt::format("{}lantencys{} = ", prefix, suffix);
+    StreamOutPythonArray(outfile, lantencys);
+    outfile << fmt::format("{}speed{} = ", prefix, suffix);
+    StreamOutPythonArray(outfile, speeds);
+    outfile << std::endl;
+
+    // Close the file
+    outfile.close();
+  }
+
+  void outputCsv(const std::string &target_text, const std::string &x_tag, int num) {
+    std::string prefix;
+    std::string suffix;
+    prefix = fmt::format("{}_", target_text);
+    suffix = fmt::format(R"(["{}"]["{}"])", x_tag, shortTheNum(num));
+
+    std::ofstream outfile(fmt::format("result/brpc_{}_{}.csv", x_tag, target_text));
+    CHECK(outfile.is_open());
+
+    outfile << "x_axis,lantencys,speed\n";
+
+    for (auto i = 0; i < x_axis.size(); ++i) {
+      outfile << fmt::format("{}, {}, {}\n", x_axis[i], lantencys[i], speeds[i]);
+    }
+
+    // Close the file
+    outfile.close();
+  }
+
+  std::vector<int> x_axis;
   std::vector<double> lantencys;
   std::vector<double> speeds;
+};
 
-  LOG(INFO) << fmt::format("{}  payload size {}", target_text, config.req_size);
-  for (auto parallel = 1; parallel <= max_parallel && !brpc::IsAskedToQuit(); parallel += 5) {
+void BenchmarkForParallel(std::string target_text, BenchmarkConfig config, int max_parallel = 50) {
+  ResultArrayOutputer outer;
+  target_text = fmt::format("{}_{}", target_text, shortTheNum(config.req_size));
+  LOG(INFO) << target_text;
+  for (auto parallel = 1; parallel <= max_parallel && !brpc::IsAskedToQuit(); parallel += 4) {
     config.parallelism = parallel;
 
     ClientBenchmarker tester(config);
     tester.init();
     tester.start();
 
-    while (tester.getRunningSender() && !brpc::IsAskedToQuit()) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
     tester.join();
 
     auto &recorder = tester.getRecorder();
@@ -205,58 +254,83 @@ void BenchmarkThisConfigForParallel(const std::string &target_text, BenchmarkCon
         "speed: {:4.2f}MB/S ",
         parallel, latency_ms, qps, sent_mbps);
 
-    parallelisms.emplace_back(parallel);
-    lantencys.emplace_back(latency_ms);
-    speeds.emplace_back(sent_mbps);
+    outer.x_axis.emplace_back(parallel);
+    outer.lantencys.emplace_back(latency_ms);
+    outer.speeds.emplace_back(sent_mbps);
   }
   LOG(INFO);
 
-  {
-    std::string prefix;
-    std::string suffix;
-    if (config.req_size >= (1 << 20)) {
-      prefix = fmt::format("{}_", target_text);
-      suffix = fmt::format("[\"{}m\"]", config.req_size >> 20);
-    } else if (config.req_size >= (1 << 10)) {
-      prefix = fmt::format("{}_", target_text);
-      suffix = fmt::format("[\"{}k\"]", config.req_size >> 10);
-    } else {
-      prefix = fmt::format("{}_", target_text);
-      suffix = fmt::format("[\"{}m\"]", config.req_size);
-    }
-
-    std::ofstream outfile("result.txt", std::ios::app);
-    CHECK(outfile.is_open());
-
-    outfile << fmt::format("# {}  payload size {}\n", target_text, config.req_size);
-
-    // outfile << fmt::format("{}parallelisms{} = ", prefix, suffix);
-    // StreamOutPythonArray(outfile, parallelisms);
-    outfile << fmt::format("{}lantencys{} = ", prefix, suffix);
-    StreamOutPythonArray(outfile, lantencys);
-    outfile << fmt::format("{}speed{} = ", prefix, suffix);
-    StreamOutPythonArray(outfile, speeds);
-    outfile << std::endl;
-
-    // Close the file
-    outfile.close();
-  }
+  outer.outputCsv(target_text, "parallel", config.req_size);
 }
+
+void BenchmarkForReqSize(std::string target_text, BenchmarkConfig config, int max_size = (1 << 22)) {
+  ResultArrayOutputer outer;
+  target_text = fmt::format("{}_{}", target_text, config.parallelism);
+  LOG(INFO) << target_text;
+  int min_size = 10240;
+  int test_gap = (max_size - min_size) / 20 + 1;
+  for (auto req_size = min_size; req_size <= max_size && !brpc::IsAskedToQuit(); req_size += test_gap) {
+    config.req_size = req_size;
+
+    ClientBenchmarker tester(config);
+    tester.init();
+    tester.start();
+    tester.join();
+
+    auto &recorder = tester.getRecorder();
+    auto latency_ms = recorder.latency_recorder.latency_percentile(.99) / 1e3;
+    int64_t qps = recorder.latency_recorder.qps();
+
+    auto sent_mbps = tester.getSentBPS() / (1 << 20);
+    // auto recieved_mbps = tester.getRecievedBPS() / (1 << 20);
+
+    LOG(INFO) << fmt::format(
+        "   req_size {:2d}:   lantency: {:4.2f},  qps: {:4d} "
+        "speed: {:4.2f}MB/S ",
+        req_size, latency_ms, qps, sent_mbps);
+
+    outer.x_axis.emplace_back(req_size);
+    outer.lantencys.emplace_back(latency_ms);
+    outer.speeds.emplace_back(sent_mbps);
+  }
+  LOG(INFO);
+
+  outer.outputCsv(target_text, "req-size", config.req_size);
+}
+
+DEFINE_bool(for_parallelism, false, "");
+DEFINE_bool(for_req_size, false, "");
 
 int main(int argc, char *argv[]) {
   auto config = parseCommandLine(argc, argv);
 
-  config.use_attachment = true;
-  BenchmarkThisConfigForParallel("attachment", config);
-  config.use_attachment = false;
+  if (FLAGS_for_parallelism) {
+    config.use_attachment = true;
+    BenchmarkForParallel("attachment", config);
+    config.use_attachment = false;
 
-  config.use_proto_bytes = true;
-  BenchmarkThisConfigForParallel("proto", config);
-  config.use_proto_bytes = false;
+    config.use_proto_bytes = true;
+    BenchmarkForParallel("proto", config);
+    config.use_proto_bytes = false;
 
-  config.use_streaming = true;
-  BenchmarkThisConfigForParallel("streaming", config);
-  config.use_streaming = false;
+    config.use_streaming = true;
+    BenchmarkForParallel("streaming", config);
+    config.use_streaming = false;
+  }
+
+  if (FLAGS_for_req_size) {
+    config.use_attachment = true;
+    BenchmarkForReqSize("attachment", config);
+    config.use_attachment = false;
+
+    config.use_proto_bytes = true;
+    BenchmarkForReqSize("proto", config);
+    config.use_proto_bytes = false;
+
+    config.use_streaming = true;
+    BenchmarkForReqSize("streaming", config);
+    config.use_streaming = false;
+  }
 
   return 0;
 }
