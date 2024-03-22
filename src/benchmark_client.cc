@@ -26,6 +26,7 @@
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <fstream>
@@ -45,7 +46,7 @@ class ClientBenchmarker {
   void init() {
     brpc::ChannelOptions channel_options;
     channel_options.protocol = config_.rpc_protocol;
-    if (config_.use_streaming) {
+    if (config_.use_single_streaming) {
       CHECK_EQ(config_.rpc_protocol, "baidu_std") << "RPC protocol must be baidu_std when enable streaming";
     }
     channel_options.max_retry = config_.rpc_max_retry;
@@ -205,19 +206,34 @@ class ResultArrayOutputer {
     outfile.close();
   }
 
-  void outputCsv(const std::string &target_text, const std::string &x_tag, int num) {
+  void outputCsv(const std::string &target_text, const std::string &x_tag) {
     std::string prefix;
     std::string suffix;
-    prefix = fmt::format("{}_", target_text);
-    suffix = fmt::format(R"(["{}"]["{}"])", x_tag, shortTheNum(num));
 
     std::ofstream outfile(fmt::format("result/brpc_{}_{}.csv", x_tag, target_text));
     CHECK(outfile.is_open());
 
-    outfile << "x_axis,lantencys,speed\n";
+    if (*std::max_element(lantencys.begin(), lantencys.end()) == 0) {
+      lantencys.clear();
+    }
+    if (*std::max_element(speeds.begin(), speeds.end()) == 0) {
+      speeds.clear();
+    }
+    if (*std::max_element(qps.begin(), qps.end()) == 0) {
+      qps.clear();
+    }
+    outfile << "x_axis,";
+    if (!lantencys.empty()) outfile << "lantencys,";
+    if (!speeds.empty()) outfile << "speed,";
+    if (!qps.empty()) outfile << "qps,";
+    outfile << std::endl;
 
     for (auto i = 0; i < x_axis.size(); ++i) {
-      outfile << fmt::format("{}, {}, {}\n", x_axis[i], lantencys[i], speeds[i]);
+      outfile << fmt::format("{},", x_axis[i]);
+      if (!lantencys.empty()) outfile << fmt::format("{},", lantencys[i]);
+      if (!speeds.empty()) outfile << fmt::format("{},", speeds[i]);
+      if (!qps.empty()) outfile << fmt::format("{}", qps[i]);
+      outfile << std::endl;
     }
 
     // Close the file
@@ -225,13 +241,15 @@ class ResultArrayOutputer {
   }
 
   std::vector<int> x_axis;
+  std::vector<int> qps;
   std::vector<double> lantencys;
   std::vector<double> speeds;
 };
 
 void BenchmarkForParallel(std::string target_text, BenchmarkConfig config, int max_parallel = 50) {
   ResultArrayOutputer outer;
-  target_text = fmt::format("{}_{}", target_text, shortTheNum(config.req_size));
+  target_text = fmt::format("{}_reqsz({})_para(1-{})_streamsz({})_prot({})", target_text, shortTheNum(config.req_size),
+                            max_parallel, shortTheNum(config.stream_single_msg_size), config.rpc_protocol);
   LOG(INFO) << target_text;
   for (auto parallel = 1; parallel <= max_parallel && !brpc::IsAskedToQuit(); parallel += 4) {
     config.parallelism = parallel;
@@ -257,19 +275,24 @@ void BenchmarkForParallel(std::string target_text, BenchmarkConfig config, int m
     outer.x_axis.emplace_back(parallel);
     outer.lantencys.emplace_back(latency_ms);
     outer.speeds.emplace_back(sent_mbps);
+    outer.qps.emplace_back(qps);
   }
   LOG(INFO);
 
-  outer.outputCsv(target_text, "parallel", config.req_size);
+  outer.outputCsv(target_text, "parallel");
 }
 
-void BenchmarkForReqSize(std::string target_text, BenchmarkConfig config, int max_size = (1 << 22)) {
+void BenchmarkForReqSize(std::string target_text, BenchmarkConfig config, int max_size = (1 << 30)) {
   ResultArrayOutputer outer;
-  target_text = fmt::format("{}_{}", target_text, config.parallelism);
+  int min_size = 256;
+  target_text = fmt::format("{}_reqsz({}-{})_para({})_streamsz({})_prot({})", target_text, shortTheNum(min_size),
+                            shortTheNum(max_size), config.parallelism, shortTheNum(config.stream_single_msg_size),
+                            config.rpc_protocol);
   LOG(INFO) << target_text;
-  int min_size = 10240;
-  int test_gap = (max_size - min_size) / 20 + 1;
-  for (auto req_size = min_size; req_size <= max_size && !brpc::IsAskedToQuit(); req_size += test_gap) {
+  // int test_gap = (max_size - min_size) / 40 + 1;
+  auto test_gap = std::pow(static_cast<long double>(max_size) / min_size, 1.0 / 40);
+  for (long double req_size_r = min_size; req_size_r <= max_size && !brpc::IsAskedToQuit(); req_size_r *= test_gap) {
+    int req_size = std::round(req_size_r);
     config.req_size = req_size;
 
     ClientBenchmarker tester(config);
@@ -292,14 +315,55 @@ void BenchmarkForReqSize(std::string target_text, BenchmarkConfig config, int ma
     outer.x_axis.emplace_back(req_size);
     outer.lantencys.emplace_back(latency_ms);
     outer.speeds.emplace_back(sent_mbps);
+    outer.qps.emplace_back(qps);
   }
   LOG(INFO);
 
-  outer.outputCsv(target_text, "req-size", config.req_size);
+  outer.outputCsv(target_text, "req-size");
+}
+
+void BenchmarkForStreamingSize(std::string target_text, BenchmarkConfig config, int max_size = (1 << 13)) {
+  ResultArrayOutputer outer;
+  int min_size = 256;
+  target_text = fmt::format("{}_reqsz({})_para({})_streamsz({}-{})_prot({})", target_text, shortTheNum(config.req_size),
+                            config.parallelism, shortTheNum(min_size), shortTheNum(config.stream_single_msg_size),
+                            config.rpc_protocol);
+
+  LOG(INFO) << target_text;
+  int test_gap = (max_size - min_size) / 20 + 1;
+  for (auto s_size = min_size; s_size <= max_size && !brpc::IsAskedToQuit(); s_size += test_gap) {
+    config.stream_single_msg_size = s_size;
+
+    ClientBenchmarker tester(config);
+    tester.init();
+    tester.start();
+    tester.join();
+
+    auto &recorder = tester.getRecorder();
+    auto latency_ms = recorder.latency_recorder.latency_percentile(.99) / 1e3;
+    int64_t qps = recorder.latency_recorder.qps();
+
+    auto sent_mbps = tester.getSentBPS() / (1 << 20);
+    // auto recieved_mbps = tester.getRecievedBPS() / (1 << 20);
+
+    LOG(INFO) << fmt::format(
+        "   streaming_msg_size {:2d}:   lantency: {:4.2f},  qps: {:4d} "
+        "speed: {:4.2f}MB/S ",
+        s_size, latency_ms, qps, sent_mbps);
+
+    outer.x_axis.emplace_back(s_size);
+    outer.lantencys.emplace_back(latency_ms);
+    outer.speeds.emplace_back(sent_mbps);
+    outer.qps.emplace_back(qps);
+  }
+  LOG(INFO);
+
+  outer.outputCsv(target_text, "streaming-size");
 }
 
 DEFINE_bool(for_parallelism, false, "");
 DEFINE_bool(for_req_size, false, "");
+DEFINE_bool(for_streaming_size, false, "");
 
 int main(int argc, char *argv[]) {
   auto config = parseCommandLine(argc, argv);
@@ -313,23 +377,35 @@ int main(int argc, char *argv[]) {
     BenchmarkForParallel("proto", config);
     config.use_proto_bytes = false;
 
-    config.use_streaming = true;
-    BenchmarkForParallel("streaming", config);
-    config.use_streaming = false;
+    config.use_single_streaming = true;
+    BenchmarkForParallel("sstreaming", config);
+    config.use_single_streaming = false;
   }
 
   if (FLAGS_for_req_size) {
+    auto max_req_size = config.req_size;
+
     config.use_attachment = true;
-    BenchmarkForReqSize("attachment", config);
+    BenchmarkForReqSize("attachment", config, max_req_size);
     config.use_attachment = false;
 
     config.use_proto_bytes = true;
-    BenchmarkForReqSize("proto", config);
+    BenchmarkForReqSize("proto", config, max_req_size);
     config.use_proto_bytes = false;
 
-    config.use_streaming = true;
-    BenchmarkForReqSize("streaming", config);
-    config.use_streaming = false;
+    config.use_continue_streaming = true;
+    BenchmarkForReqSize("cstreaming", config, max_req_size);
+    config.use_continue_streaming = false;
+
+    config.use_single_streaming = true;
+    BenchmarkForReqSize("sstreaming", config, max_req_size);
+    config.use_single_streaming = false;
+  }
+
+  if (FLAGS_for_streaming_size) {
+    config.use_continue_streaming = true;
+    BenchmarkForStreamingSize("cstreaming", config);
+    config.use_continue_streaming = false;
   }
 
   return 0;

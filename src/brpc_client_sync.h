@@ -12,11 +12,11 @@
 #include <thread>
 
 #include "config.h"
+#include "continue_streaming.h"
 #include "proto/echo.pb.h"
 #include "util.h"
 
 class Client {
-  static constexpr auto kSendInterval = std::chrono::milliseconds(200);
   static constexpr auto kDefaultBenchmarkTime = std::chrono::milliseconds(1000);
   static constexpr auto kBaseProroSize = 12;
 
@@ -34,6 +34,15 @@ class Client {
 
   void runReqBench(std::unique_ptr<example::EchoService_Stub> stub,
                    std::chrono::milliseconds benchmark_time = kDefaultBenchmarkTime) {
+    if (config_->use_continue_streaming) {
+      ContinueStreamingSender sender(stub.get(), config_->req_size);
+      sender.run_continue_streaming(benchmark_time);
+      real_benchmark_time_s_ = sender.getRealBenchTime();
+      sent_bytes_ = sender.getSentBytes();
+
+      done_call_back_func_();
+      return;
+    }
     sent_bytes_ = 0;
     stub_ = std::move(stub);
     generate_data(req_size_);
@@ -48,7 +57,7 @@ class Client {
       example::EchoRequest request;
       request.set_hash(data_hash);
 
-      if (config_->use_streaming) {
+      if (config_->use_single_streaming) {
         if (brpc::StreamCreate(&stream_id, cntl, nullptr) != 0) {
           LOG(WARNING) << "Fail to create stream";
           std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -77,7 +86,7 @@ class Client {
       sent_bytes_ += kBaseProroSize;
 
       if (cntl.Failed()) {
-        LOG(INFO) << "QWQ  rpc failed! " << cntl.ErrorText() << " latency=" << cntl.latency_us();
+        LOG(WARNING) << "QWQ  rpc failed! " << cntl.ErrorText() << " latency=" << cntl.latency_us();
         recorder_->error_count << 1;
         // We can't connect to the server, sleep a while. Notice that this
         // is a specific sleeping to prevent this thread from spinning too
@@ -93,15 +102,16 @@ class Client {
         }
       }
 
-      if (config_->use_streaming) {
+      if (config_->use_single_streaming) {
         butil::IOBuf stream_data;
-        for (auto tot_size = 0; tot_size < req_size_; tot_size += config_->stream_client_msg_size) {
-          auto size = std::min(config_->stream_client_msg_size, req_size_ - tot_size);
+        for (auto tot_size = 0; tot_size < req_size_; tot_size += config_->stream_single_msg_size) {
+          auto size = std::min(config_->stream_single_msg_size, req_size_ - tot_size);
 
           stream_data.append(data.data() + tot_size, size);
           while (auto ret = brpc::StreamWrite(stream_id, stream_data)) {
             if (ret == EAGAIN) {
-              std::this_thread::sleep_for(std::chrono::milliseconds(1));
+              // std::this_thread::sleep_for(std::chrono::milliseconds(1));
+              CHECK(brpc::StreamWait(stream_id, nullptr) == 0);
               continue;
             } else {
               CHECK_EQ(0, 1) << "Fail to write stream";
@@ -112,7 +122,7 @@ class Client {
         brpc::StreamClose(stream_id);
       }
     }
-    real_benchmark_time_S_ =
+    real_benchmark_time_s_ =
         (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start)).count() / 1e6;
 
     done_call_back_func_();
@@ -126,8 +136,8 @@ class Client {
   uint64_t getSentBytes() const { return sent_bytes_; }
   uint64_t getRecievedBytes() const { return recieved_bytes_; }
 
-  double getSentBPS() const { return sent_bytes_ / real_benchmark_time_S_; }
-  double getRecievedBPS() const { return recieved_bytes_ / real_benchmark_time_S_; }
+  double getSentBPS() const { return sent_bytes_ / real_benchmark_time_s_; }
+  double getRecievedBPS() const { return recieved_bytes_ / real_benchmark_time_s_; }
 
  private:
   void generate_data(int data_size, int num_data = 10) {
@@ -149,5 +159,5 @@ class Client {
 
   uint64_t sent_bytes_{0};
   uint64_t recieved_bytes_{0};
-  double real_benchmark_time_S_;
+  double real_benchmark_time_s_;
 };

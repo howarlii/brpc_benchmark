@@ -54,7 +54,9 @@ void StreamOutPythonArray(S &out, const T &a) {
 }
 
 std::string shortTheNum(auto num) {
-  if (num >= (1 << 20)) {
+  if (num >= (1 << 30)) {
+    return fmt::format("{}g", num >> 30);
+  } else if (num >= (1 << 20)) {
     return fmt::format("{}m", num >> 20);
   } else if (num >= (1 << 10)) {
     return fmt::format("{}k", num >> 10);

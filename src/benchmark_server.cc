@@ -26,12 +26,13 @@
 #include <utility>
 
 #include "config.h"
+#include "continue_streaming.h"
 #include "proto/echo.pb.h"
 #include "util.h"
 
-class StreamReceiver : public brpc::StreamInputHandler {
+class SingleStreamReceiver : public brpc::StreamInputHandler {
  public:
-  explicit StreamReceiver(example::EchoRequest request) : request_(std::move(request)) {
+  explicit SingleStreamReceiver(example::EchoRequest request) : request_(std::move(request)) {
     data_.reserve(request_.streaming_size());
   }
 
@@ -48,14 +49,14 @@ class StreamReceiver : public brpc::StreamInputHandler {
   }
 
   void on_closed(brpc::StreamId id) final {
-    std::unique_ptr<StreamReceiver> self_guard(this);
+    std::unique_ptr<SingleStreamReceiver> self_guard(this);
     if (data_.size() != request_.streaming_size()) {
-      LOG(INFO) << fmt::format("QWQ request data size not match!  real len: {}, expect length:{}", data_.size(),
-                               request_.streaming_size());
+      LOG(WARNING) << fmt::format("QWQ request data size not match!  real len: {}, expect length:{}", data_.size(),
+                                  request_.streaming_size());
     }
     if (std::hash<std::string>{}(data_) != request_.hash()) {
-      LOG(INFO) << fmt::format("QWQ request data hash not match!  data len: {} hash: {}", request_.streaming_size(),
-                               request_.hash());
+      LOG(WARNING) << fmt::format("QWQ request data hash not match!  data len: {} hash: {}", request_.streaming_size(),
+                                  request_.hash());
     }
   }
 
@@ -84,8 +85,10 @@ class EchoServiceImpl : public example::EchoService {
 
     if (request->has_streaming_size()) {
       brpc::StreamOptions stream_options;
-      auto receiver = new StreamReceiver(*request);
+      auto receiver = new SingleStreamReceiver(*request);
       stream_options.handler = receiver;
+      stream_options.messages_in_batch = 1 << 30;
+      stream_options.max_buf_size = 1 << 30;
 
       brpc::StreamId stream_id{brpc::INVALID_STREAM_ID};
       if (brpc::StreamAccept(&stream_id, *cntl, &stream_options) != 0) {
@@ -99,6 +102,20 @@ class EchoServiceImpl : public example::EchoService {
       // cntl->request_attachment().size());
       CHECK_EQ(std::hash<std::string>{}(cntl->request_attachment().to_string()), request->hash())
           << fmt::format("QWQ request attachment size: {}", cntl->request_attachment().size());
+    }
+
+    if (request->has_continue_streaming_size()) {
+      brpc::StreamOptions stream_options;
+      auto receiver = new ContinueStreamRecvHandler(*request);
+      stream_options.handler = receiver;
+      // stream_options.messages_in_batch = 1 << 30;
+      // stream_options.max_buf_size = 1 << 30;
+
+      brpc::StreamId stream_id{brpc::INVALID_STREAM_ID};
+      if (brpc::StreamAccept(&stream_id, *cntl, &stream_options) != 0) {
+        cntl->SetFailed("Fail to accept stream");
+        return;
+      }
     }
 
     // Fill in respone

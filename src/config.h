@@ -18,8 +18,10 @@ struct BenchmarkConfig {
   bool use_proto_bytes = false;
 
   // ===== streaming settings =====
-  bool use_streaming = false;  // Whether to use streaming
-  int stream_client_msg_size = 10'000;
+  bool use_single_streaming = false;    // Streaming, create a streaming every time
+  bool use_continue_streaming = false;  // Continue streaming, a thread will create a streaming at
+                                        // begining and use the that stream to send requests
+  int stream_single_msg_size = 8192;
 
   // ===== channel settings =====
   bool use_parallel_channel = false;  // Whether to use parallel channel
@@ -59,8 +61,9 @@ DEFINE_bool(use_attachment, default_config.use_attachment, "Whether to use attac
 DEFINE_bool(use_proto_bytes, default_config.use_proto_bytes, "Whether to use proto bytes");
 
 // ===== streaming settings =====
-DEFINE_bool(use_streaming, default_config.use_streaming, "Whether to use streaming");
-DEFINE_int32(stream_client_msg_size, default_config.stream_client_msg_size, "Streaming message size");
+DEFINE_bool(use_streaming, default_config.use_single_streaming, "Whether to use streaming");
+DEFINE_bool(use_continue_streaming, default_config.use_continue_streaming, "Whether to use continue streaming");
+DEFINE_int32(stream_client_msg_size, default_config.stream_single_msg_size, "Streaming message size");
 
 // ==== rpc protocol settings ====
 DEFINE_string(rpc_protocol, default_config.rpc_protocol, "Protocol type. Defined in src/brpc/options.proto");
@@ -85,8 +88,9 @@ inline BenchmarkConfig parseCommandLine(int argc, char **argv) {
   config.use_proto_bytes = FLAGS_use_proto_bytes;
 
   // ===== streaming settings =====
-  config.use_streaming = FLAGS_use_streaming;
-  config.stream_client_msg_size = FLAGS_stream_client_msg_size;
+  config.use_single_streaming = FLAGS_use_streaming;
+  config.use_continue_streaming = FLAGS_use_continue_streaming;
+  config.stream_single_msg_size = FLAGS_stream_client_msg_size;
 
   // ===== rpc protocol settings =====
   config.rpc_protocol = FLAGS_rpc_protocol;
