@@ -116,8 +116,8 @@ def drawIperf():
 
 def drawDelays(parallel):
     colors = ['b', 'r', 'g', 'y', 'm', 'c', 'k']
-    linestyles = ['-', '--', '-.', ':']
-    markers = ['^', 'x', 's', 'v', '+','o', 'D']
+    linestyles = ['-', '--', ':', '-.']
+    # markers = ['^', 'x', 's', 'v', '+','o', 'D']
 
     # Create a new figure and two subplots
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), height_ratios=[1, 2])
@@ -130,9 +130,9 @@ def drawDelays(parallel):
             test_type = f"{test_labels[i2]}-{d}-p{parallel}"
             color = colors[i2]
             if("delays" in datas[test_type]):
-                ax1.plot(x_axis[test_type], datas[test_type]["delays"],linestyle = linestyles[i1], marker=markers[i1], label=f"{test_type}", color=color)
+                ax1.plot(x_axis[test_type], datas[test_type]["delays"],linestyle = linestyles[i1], label=f"{test_type}", color=color)
             if("speed" in datas[test_type]):
-                ax2.plot(x_axis[test_type], datas[test_type]["speed"],linestyle = linestyles[i1], marker=markers[i1], label=f"{test_type}", color=color)
+                ax2.plot(x_axis[test_type], datas[test_type]["speed"],linestyle = linestyles[i1], label=f"{test_type}", color=color)
 
     if(x_axis[test_type][-1] / x_axis[test_type][0] > 100):
         ax1.set_xscale('log')
@@ -153,8 +153,8 @@ def drawDelays(parallel):
 
 def drawParallel(delay):
     colors = ['b', 'r', 'g', 'y', 'm', 'c', 'k']
-    linestyles = ['-', '--', '-.', ':']
-    markers = ['^', 'x', 'o', 'v', '+','o', 'D']
+    linestyles = ['-', '--', ':', '-.']
+    # markers = ['^', 'x', 'o', 'v', '+','o', 'D']
 
     # Create a new figure and two subplots
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), height_ratios=[1, 2])
