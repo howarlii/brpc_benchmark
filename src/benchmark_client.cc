@@ -397,9 +397,9 @@ int main(int argc, char *argv[]) {
     BenchmarkForReqSize("cstreaming", config, max_req_size);
     config.use_continue_streaming = false;
 
-    config.use_single_streaming = true;
-    BenchmarkForReqSize("sstreaming", config, max_req_size);
-    config.use_single_streaming = false;
+    // config.use_single_streaming = true;
+    // BenchmarkForReqSize("sstreaming", config, max_req_size);
+    // config.use_single_streaming = false;
   }
 
   if (FLAGS_for_streaming_size) {

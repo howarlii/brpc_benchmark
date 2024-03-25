@@ -83,7 +83,6 @@ class Client {
 
       example::EchoResponse resp;
       stub_->Echo(&cntl, &request, &resp, nullptr);
-      sent_bytes_ += kBaseProroSize;
 
       if (cntl.Failed()) {
         LOG(WARNING) << "QWQ  rpc failed! " << cntl.ErrorText() << " latency=" << cntl.latency_us();
@@ -92,8 +91,9 @@ class Client {
         // is a specific sleeping to prevent this thread from spinning too
         // fast. You should continue the business logic in a production
         // server rather than sleeping.
-        return;
+        continue;
       }
+      sent_bytes_ += kBaseProroSize;
 
       recorder_->latency_recorder << cntl.latency_us();
       for (int i = 0; i < cntl.sub_count(); ++i) {

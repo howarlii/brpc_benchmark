@@ -19,7 +19,8 @@ class ContinueStreamingSender {
   static constexpr auto kBaseProroSize = 12;
 
  public:
-  explicit ContinueStreamingSender(example::EchoService_Stub *stub, int msg_size) : stub_(stub), msg_size_(msg_size) {}
+  explicit ContinueStreamingSender(example::EchoService_Stub *stub, uint64_t msg_size)
+      : stub_(stub), msg_size_(msg_size) {}
 
   auto getSentBytes() const { return sent_bytes_; }
 
@@ -117,7 +118,7 @@ class ContinueStreamingSender {
 
   example::EchoService_Stub *stub_;
 
-  const int msg_size_;
+  const uint64_t msg_size_;
   std::atomic<int> recv_seq_id_{-1};
 
   uint64_t sent_bytes_{0};
