@@ -71,8 +71,9 @@ Streaming的设计意图在于C/S段建立一个流式数据通道，从而持�
 
 
 ## Different Protocal
+保持`delay=1ms`，使用1个Client进行传输，设置不同RPC protocol的情况下，Throughput/Lantency vs Request Size数据如下：
 
-![delay=1ms parallel=1 prots](./result/req-size_delay1ms_reqsz(256-256m)_para(1)_streamsz(8k)_prots.png)
+![delay=1ms parallel=1 prots](./result/figs/req-size_delay1ms_reqsz(256-256m)_para(1)_streamsz(8k)_prots.png)
 
 
 # Run The Benchmark
