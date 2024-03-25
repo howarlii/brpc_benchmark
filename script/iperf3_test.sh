@@ -2,8 +2,9 @@
 
 # PORT=6667
 SERVER_IP=127.0.0.1
-TEST_DURATION=5
+TEST_DURATION=4
 OUTPUT_FILE="result/iperf3_res.csv"
+thread_nums=(1 2 4 6 8 10 12 14 16)
 
 iperf3 -s -D
 
@@ -12,7 +13,7 @@ throughput_arr=()
 rtt_arr=()
 x_axis=()
 echo "x_axis,lantencys,speed" >"$OUTPUT_FILE"
-for thread_num in {1..50..4}; do
+for thread_num in "${thread_nums[@]}"; do
     result=$(iperf3 -c $SERVER_IP -P $thread_num -t $TEST_DURATION --json)
     # echo $result
     throughput=$(echo "$result" | jq -r '.end.sum_received.bits_per_second' | awk '{ printf "%.3f", $1/8/1024/1024 }')

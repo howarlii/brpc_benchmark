@@ -27,8 +27,16 @@ Streaming的设计意图在于C/S段建立一个流式数据通道，从而持�
 
 # Benchmark Result
 
-下列数据均通过`tc qdisc add dev lo root netem delay 1ms`设定localhost延迟。
+所有原始结果数据位于目录`./result/`。
+
+测试方法为：Client/Server均运行在同一个docker中，，使用`127.0.0.1`为server address, 通过`tc qdisc add dev lo root netem delay Xms`设定localhost延迟。
 其中Continue-streaming的`single_msg_size=req_size`
+
+## Iperf3 Test
+测试本地TCP连接的throughput，
+![iperf3](./result/figs/iperf3.png)
+
+
 
 ## Request Size
 当`delay=1ms`时，单个Client的Throughput/Lantency vs Request Size数据如下：
@@ -62,7 +70,6 @@ Streaming的设计意图在于C/S段建立一个流式数据通道，从而持�
 同时，结果显示，当lantency较大时，所有传输方式的throughput均有很大程度下降。理论上来说所有的协议均使用同一个channel，即同一个TCP连接，在latency增加时发送rpc/streaming的throughput不应该下降，暂时还未找到导致此现象的原因。
 
 
-
 ## Different Protocal
 
 
@@ -70,23 +77,6 @@ Streaming的设计意图在于C/S段建立一个流式数据通道，从而持�
 
 # Run The Benchmark
 
-## Add lantency at localhost
-
-add delay:
-`tc qdisc add dev lo root netem delay 1ms`
-
-delete delay:
-`tc qdisc del dev lo root netem delay 1ms`
-
-show status:
-x   `
-
-## Benchmark TCP connection using iperf3
-
-`./script/iperf3_test.sh`
-
-## Run The Benchmark
-
-`./run_benchmark.sh`
-
-
+```bash
+./run_benchmark.sh
+```

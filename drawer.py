@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import csv
 
 datas = dict()
-x_axis = None
+x_axis = dict()
 
 def readCsv(test_type, file_path):
     if os.path.exists(file_path) == False:
@@ -15,8 +15,7 @@ def readCsv(test_type, file_path):
 
     global x_axis
     global datas
-    if(x_axis == None):
-        x_axis = [int(row["x_axis"]) for row in rows]
+    x_axis[test_type] = [int(row["x_axis"]) for row in rows]
 
     datas[test_type] = dict()
 
@@ -38,7 +37,9 @@ class DataDrawer:
     def setData(self, test_type, test_label):
         self.test_labels.append(test_label)
         if(self.x_axis == None):
-            self.x_axis = x_axis
+            self.x_axis = x_axis[test_type]
+        else:
+            assert self.x_axis == x_axis[test_type]
 
         if("speed" in datas[test_type]):
             self.speed[test_label] = datas[test_type]["speed"]
@@ -91,9 +92,29 @@ class DataDrawer:
         plt.savefig(f'result/{file_name}.png')
 
 
-def drawdelays(parallel):
-    global datas
-    global x_axis
+def drawIperf():
+    colors = ['b', 'r', 'g', 'y', 'm', 'c', 'k']
+
+    # Create a new figure and two subplots
+    fig, (ax1) = plt.subplots(1, 1, figsize=(10, 4))
+
+    delays = ["0ms", "1ms", "10ms"]
+    for i1 in range(len(delays)):
+        test_type = f"iperf-{delays[i1]}"
+        color = colors[i1]
+        ax1.plot(x_axis[test_type], datas[test_type]["speed"], marker='^', label=f"{test_type}", color=color)
+
+    ax1.set_xlabel("Parallelism")
+    ax1.set_ylabel('Throughput (MB/S)')
+    ax1.grid(True)
+    ax1.legend()
+
+    fig.suptitle("iperf3 benchmakr")
+
+    plt.tight_layout()
+    plt.savefig(f'result/iperf3.png')
+
+def drawDelays(parallel):
     colors = ['b', 'r', 'g', 'y', 'm', 'c', 'k']
     linestyles = ['-', '--', '-.', ':']
     markers = ['^', 'x', 's', 'v', '+','o', 'D']
@@ -109,11 +130,11 @@ def drawdelays(parallel):
             test_type = f"{test_labels[i2]}-{d}-p{parallel}"
             color = colors[i2]
             if("delays" in datas[test_type]):
-                ax1.plot(x_axis, datas[test_type]["delays"],linestyle = linestyles[i1], marker=markers[i1], label=f"{test_type}", color=color)
+                ax1.plot(x_axis[test_type], datas[test_type]["delays"],linestyle = linestyles[i1], marker=markers[i1], label=f"{test_type}", color=color)
             if("speed" in datas[test_type]):
-                ax2.plot(x_axis, datas[test_type]["speed"],linestyle = linestyles[i1], marker=markers[i1], label=f"{test_type}", color=color)
+                ax2.plot(x_axis[test_type], datas[test_type]["speed"],linestyle = linestyles[i1], marker=markers[i1], label=f"{test_type}", color=color)
 
-    if(x_axis[-1] / x_axis[0] > 100):
+    if(x_axis[test_type][-1] / x_axis[test_type][0] > 100):
         ax1.set_xscale('log')
         ax2.set_xscale('log')
 
@@ -131,8 +152,6 @@ def drawdelays(parallel):
     plt.savefig(f'result/req-size_delays_reqsz(256-256m)_para({parallel})_streamsz(8k)_prot(baidu_std).png')
 
 def drawParallel(delay):
-    global datas
-    global x_axis
     colors = ['b', 'r', 'g', 'y', 'm', 'c', 'k']
     linestyles = ['-', '--', '-.', ':']
     markers = ['^', 'x', 'o', 'v', '+','o', 'D']
@@ -148,11 +167,11 @@ def drawParallel(delay):
             test_type = f"{test_labels[i2]}-{delay}-p{p}"
             color = colors[i2]
             if("delays" in datas[test_type]):
-                ax1.plot(x_axis, datas[test_type]["delays"],linestyle = linestyles[i1],  label=f"{test_type}", color=color)
+                ax1.plot(x_axis[test_type], datas[test_type]["delays"],linestyle = linestyles[i1],  label=f"{test_type}", color=color)
             if("speed" in datas[test_type]):
-                ax2.plot(x_axis, datas[test_type]["speed"],linestyle = linestyles[i1],  label=f"{test_type}", color=color)
+                ax2.plot(x_axis[test_type], datas[test_type]["speed"],linestyle = linestyles[i1],  label=f"{test_type}", color=color)
 
-    if(x_axis[-1] / x_axis[0] > 100):
+    if(x_axis[test_type][-1] / x_axis[test_type][0] > 100):
         ax1.set_xscale('log')
         ax2.set_xscale('log')
 
@@ -167,26 +186,28 @@ def drawParallel(delay):
 
     fig.suptitle(f"delay={delay} protocol=baidu_std")
     plt.tight_layout()
-    plt.savefig(f'result/req-size_delay({delay})_reqsz(256-256m)_paras_streamsz(8k)_prot(baidu_std).png')
+    plt.savefig(f'result/req-size_delay{delay}_reqsz(256-256m)_paras_streamsz(8k)_prot(baidu_std).png')
+
 
 
 delays = ["0ms", "1ms", "10ms"]
 paras = ["1", "2", "4"]
-
 for delay in delays:
+    readCsv(f"iperf-{delay}", f"result/{delay}/iperf3_res.csv")
     for pa in paras:
         readCsv(f"proto-{delay}-p{pa}", f"result/{delay}/brpc_req-size_proto_reqsz(256-256m)_para({pa})_streamsz(8k)_prot(baidu_std).csv")
         readCsv(f"attachment-{delay}-p{pa}", f"result/{delay}/brpc_req-size_attachment_reqsz(256-256m)_para({pa})_streamsz(8k)_prot(baidu_std).csv")
         readCsv(f"c-streaming-{delay}-p{pa}", f"result/{delay}/brpc_req-size_cstreaming_reqsz(256-256m)_para({pa})_streamsz(8k)_prot(baidu_std).csv")
 
-        p_drawer = DataDrawer()
-        p_drawer.setData(f"proto-{delay}-p{pa}", "proto")
-        p_drawer.setData(f"attachment-{delay}-p{pa}", "attachment")
-        p_drawer.setData(f"c-streaming-{delay}-p{pa}", "c-streaming")
-        p_drawer.draw("req-size (Byte)", f"delay={delay} parallel={pa} protocol=baidu_std",
-                      f"req-size_delay{delay}_reqsz(256-256m)_para({pa})_streamsz(8k)_prot(baidu_std)")
+        # p_drawer = DataDrawer()
+        # p_drawer.setData(f"proto-{delay}-p{pa}", "proto")
+        # p_drawer.setData(f"attachment-{delay}-p{pa}", "attachment")
+        # p_drawer.setData(f"c-streaming-{delay}-p{pa}", "c-streaming")
+        # p_drawer.draw("req-size (Byte)", f"delay={delay} parallel={pa} protocol=baidu_std",
+        #               f"req-size_delay{delay}_reqsz(256-256m)_para({pa})_streamsz(8k)_prot(baidu_std)")
 
+drawIperf()
 
-drawdelays(1)
+drawDelays(1)
 
 drawParallel("1ms")
