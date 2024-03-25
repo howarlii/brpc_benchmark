@@ -365,47 +365,70 @@ DEFINE_bool(for_parallelism, false, "");
 DEFINE_bool(for_req_size, false, "");
 DEFINE_bool(for_streaming_size, false, "");
 
+DEFINE_bool(test_proto, true, "");
+DEFINE_bool(test_attachment, true, "");
+DEFINE_bool(test_cstreaming, true, "");
+DEFINE_bool(test_sstreaming, false, "");
+
 int main(int argc, char *argv[]) {
   auto config = parseCommandLine(argc, argv);
 
   if (FLAGS_for_parallelism) {
-    config.use_attachment = true;
-    BenchmarkForParallel("attachment", config);
-    config.use_attachment = false;
-
-    config.use_proto_bytes = true;
-    BenchmarkForParallel("proto", config);
-    config.use_proto_bytes = false;
-
-    config.use_single_streaming = true;
-    BenchmarkForParallel("sstreaming", config);
-    config.use_single_streaming = false;
+    if (FLAGS_test_attachment) {
+      config.use_attachment = true;
+      BenchmarkForParallel("attachment", config);
+      config.use_attachment = false;
+    }
+    if (FLAGS_test_proto) {
+      config.use_proto_bytes = true;
+      BenchmarkForParallel("proto", config);
+      config.use_proto_bytes = false;
+    }
+    if (FLAGS_test_sstreaming) {
+      config.use_single_streaming = true;
+      BenchmarkForParallel("sstreaming", config);
+      config.use_single_streaming = false;
+    }
   }
 
   if (FLAGS_for_req_size) {
     auto max_req_size = config.req_size;
 
-    config.use_attachment = true;
-    BenchmarkForReqSize("attachment", config, max_req_size);
-    config.use_attachment = false;
+    if (FLAGS_test_attachment) {
+      config.use_attachment = true;
+      BenchmarkForReqSize("attachment", config, max_req_size);
+      config.use_attachment = false;
+    }
+    if (FLAGS_test_proto) {
+      config.use_proto_bytes = true;
+      BenchmarkForReqSize("proto", config, max_req_size);
+      config.use_proto_bytes = false;
+    }
+    if (FLAGS_test_cstreaming) {
+      config.use_continue_streaming = true;
+      BenchmarkForReqSize("cstreaming", config, max_req_size);
+      config.use_continue_streaming = false;
+    }
 
-    config.use_proto_bytes = true;
-    BenchmarkForReqSize("proto", config, max_req_size);
-    config.use_proto_bytes = false;
-
-    config.use_continue_streaming = true;
-    BenchmarkForReqSize("cstreaming", config, max_req_size);
-    config.use_continue_streaming = false;
-
-    // config.use_single_streaming = true;
-    // BenchmarkForReqSize("sstreaming", config, max_req_size);
-    // config.use_single_streaming = false;
+    if (FLAGS_test_sstreaming) {
+      config.use_single_streaming = true;
+      BenchmarkForReqSize("sstreaming", config, max_req_size);
+      config.use_single_streaming = false;
+    }
   }
 
   if (FLAGS_for_streaming_size) {
-    config.use_continue_streaming = true;
-    BenchmarkForStreamingSize("cstreaming", config);
-    config.use_continue_streaming = false;
+    if (FLAGS_test_cstreaming) {
+      config.use_continue_streaming = true;
+      BenchmarkForStreamingSize("cstreaming", config);
+      config.use_continue_streaming = false;
+    }
+
+    if (FLAGS_test_sstreaming) {
+      config.use_single_streaming = true;
+      BenchmarkForStreamingSize("cstreaming", config);
+      config.use_single_streaming = false;
+    }
   }
 
   return 0;

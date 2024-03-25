@@ -2,8 +2,6 @@
 
 测试BRPC使用不同的方式，传输大量binary数据的性能表现。
 
-测试的机器采用lab-wroker2(96c192t)，同一台机器作为Server/Client，使用tc控制localhost的delay。
-
 测试不同的传输方式包括：
 - 以bytes data的形式放在proto中；
 - 以attachment的形式放在cntl中；
@@ -29,11 +27,13 @@ Streaming的设计意图在于C/S段建立一个流式数据通道，从而持�
 
 所有原始结果数据位于目录`./result/`。
 
+测试的机器采用lab-wroker2(96c192t)，
 测试方法为：Client/Server均运行在同一个docker中，，使用`127.0.0.1`为server address, 通过`tc qdisc add dev lo root netem delay Xms`设定localhost延迟。
 其中Continue-streaming的`single_msg_size=req_size`
 
 ## Iperf3 Test
-测试本地TCP连接的throughput，
+测试本地TCP连接的throughput，设定`delay=0ms/1ms/10ms`：
+
 ![iperf3](./result/figs/iperf3.png)
 
 
@@ -72,7 +72,7 @@ Streaming的设计意图在于C/S段建立一个流式数据通道，从而持�
 
 ## Different Protocal
 
-
+![delay=1ms parallel=1 prots](./result/req-size_delay1ms_reqsz(256-256m)_para(1)_streamsz(8k)_prots.png)
 
 
 # Run The Benchmark

@@ -163,6 +163,9 @@ class Server {
 
     // Start the server_.
     brpc::ServerOptions options;
+    options.h2_settings.stream_window_size = brpc::H2Settings::MAX_WINDOW_SIZE;
+    options.h2_settings.connection_window_size = brpc::H2Settings::MAX_WINDOW_SIZE;
+    // options.h2_settings.max_frame_size = brpc::H2Settings::DEFAULT_MAX_FRAME_SIZE - 1;
 
     if (server_.Start(config_.brpc_port, &options) != 0) {
       LOG(ERROR) << "Fail to start EchoServer";

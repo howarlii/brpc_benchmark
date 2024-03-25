@@ -60,9 +60,9 @@ class DataDrawer:
             color = colors[i]
             # Plot array latencies 1 on the first subplot
             if(test_type in self.delays):
-                ax1.plot(self.x_axis, self.delays[test_type], marker='o', label=test_type, color=color)
+                ax1.plot(self.x_axis, self.delays[test_type], marker='+', label=test_type, color=color)
             if(test_type in self.speed):
-                ax2.plot(self.x_axis, self.speed[test_type], marker='^', label=f"{test_type}", color=color)
+                ax2.plot(self.x_axis, self.speed[test_type], marker='+', label=f"{test_type}", color=color)
             # if(test_type in self.qps):
             #     ax3.plot(self.x_axis, self.qps[test_type], marker='*', linestyle='--', label=f"{test_type} qps", color=color)
 
@@ -199,12 +199,24 @@ for delay in delays:
         readCsv(f"attachment-{delay}-p{pa}", f"result/{delay}/brpc_req-size_attachment_reqsz(256-256m)_para({pa})_streamsz(8k)_prot(baidu_std).csv")
         readCsv(f"c-streaming-{delay}-p{pa}", f"result/{delay}/brpc_req-size_cstreaming_reqsz(256-256m)_para({pa})_streamsz(8k)_prot(baidu_std).csv")
 
-        # p_drawer = DataDrawer()
-        # p_drawer.setData(f"proto-{delay}-p{pa}", "proto")
-        # p_drawer.setData(f"attachment-{delay}-p{pa}", "attachment")
-        # p_drawer.setData(f"c-streaming-{delay}-p{pa}", "c-streaming")
-        # p_drawer.draw("req-size (Byte)", f"delay={delay} parallel={pa} protocol=baidu_std",
-        #               f"req-size_delay{delay}_reqsz(256-256m)_para({pa})_streamsz(8k)_prot(baidu_std)")
+        p_drawer = DataDrawer()
+        p_drawer.setData(f"proto-{delay}-p{pa}", "proto")
+        p_drawer.setData(f"attachment-{delay}-p{pa}", "attachment")
+        p_drawer.setData(f"c-streaming-{delay}-p{pa}", "c-streaming")
+        p_drawer.draw("req-size (Byte)", f"delay={delay} parallel={pa} protocol=baidu_std",
+                      f"req-size_delay{delay}_reqsz(256-256m)_para({pa})_streamsz(8k)_prot(baidu_std)")
+
+delay = "1ms"
+pa = 1
+readCsv(f"proto-{delay}-p{pa}-h2:grpc", f"result/{delay}/brpc_req-size_proto_reqsz(256-256m)_para(1)_streamsz(8k)_prot(h2:grpc).csv")
+readCsv(f"proto-{delay}-p{pa}-hulu", f"result/{delay}/brpc_req-size_proto_reqsz(256-256m)_para(1)_streamsz(8k)_prot(hulu_pbrpc).csv")
+p_drawer = DataDrawer()
+p_drawer.setData(f"proto-{delay}-p{pa}", "baidu_std")
+p_drawer.setData(f"proto-{delay}-p{pa}-h2:grpc", "h2:grpc")
+p_drawer.setData(f"proto-{delay}-p{pa}-hulu", "hulu")
+p_drawer.draw("req-size (Byte)", f"delay={delay} parallel={pa}",
+              f"req-size_delay{delay}_reqsz(256-256m)_para({pa})_streamsz(8k)_prots")
+
 
 drawIperf()
 
