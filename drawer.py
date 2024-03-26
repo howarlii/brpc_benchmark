@@ -147,29 +147,27 @@ def drawDelays(parallel):
     ax2.grid(True)
     ax2.legend()
 
-    fig.suptitle(f"parallel={pa} protocol=baidu_std")
+    fig.suptitle(f"parallel={parallel} protocol=baidu_std")
     plt.tight_layout()
     plt.savefig(f'result/req-size_delays_reqsz(256-256m)_para({parallel})_streamsz(8k)_prot(baidu_std).png')
 
 def drawParallel(delay):
     colors = ['b', 'r', 'g', 'y', 'm', 'c', 'k']
-    linestyles = ['-', '--', ':', '-.']
-    # markers = ['^', 'x', 'o', 'v', '+','o', 'D']
+    linestyles = ['-', '--', ':', '-.', '-', '--']
 
     # Create a new figure and two subplots
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), height_ratios=[1, 2])
 
     test_labels = ["proto", "attachment", "c-streaming"]
-    parallel = ["1", "2", "4"]
+    # parallel = ["1", "2", "4", "6", "8"]
     for i2 in range(len(test_labels)):
         for i1 in range(len(parallel)):
             p = parallel[i1]
             test_type = f"{test_labels[i2]}-{delay}-p{p}"
-            color = colors[i2]
             if("delays" in datas[test_type]):
-                ax1.plot(x_axis[test_type], datas[test_type]["delays"],linestyle = linestyles[i1],  label=f"{test_type}", color=color)
+                ax1.plot(x_axis[test_type], datas[test_type]["delays"],linestyle = linestyles[i1],  label=f"{test_type}", color=colors[i2])
             if("speed" in datas[test_type]):
-                ax2.plot(x_axis[test_type], datas[test_type]["speed"],linestyle = linestyles[i1],  label=f"{test_type}", color=color)
+                ax2.plot(x_axis[test_type], datas[test_type]["speed"],linestyle = linestyles[i1],  label=f"{test_type}", color=colors[i2])
 
     if(x_axis[test_type][-1] / x_axis[test_type][0] > 100):
         ax1.set_xscale('log')
@@ -177,7 +175,7 @@ def drawParallel(delay):
 
     ax1.set_ylabel(f'99% Latency (ms)')
     ax1.grid(True)
-    ax1.legend()
+    ax1.legend().set_loc('center left')
 
     ax2.set_xlabel("req-size (Byte)")
     ax2.set_ylabel('Throughput (MB/S)')
@@ -191,10 +189,10 @@ def drawParallel(delay):
 
 
 delays = ["0ms", "1ms", "10ms"]
-paras = ["1", "2", "4"]
+parallel = ["1", "2", "4", "6", "8"]
 for delay in delays:
     readCsv(f"iperf-{delay}", f"result/{delay}/iperf3_res.csv")
-    for pa in paras:
+    for pa in parallel:
         readCsv(f"proto-{delay}-p{pa}", f"result/{delay}/brpc_req-size_proto_reqsz(256-256m)_para({pa})_streamsz(8k)_prot(baidu_std).csv")
         readCsv(f"attachment-{delay}-p{pa}", f"result/{delay}/brpc_req-size_attachment_reqsz(256-256m)_para({pa})_streamsz(8k)_prot(baidu_std).csv")
         readCsv(f"c-streaming-{delay}-p{pa}", f"result/{delay}/brpc_req-size_cstreaming_reqsz(256-256m)_para({pa})_streamsz(8k)_prot(baidu_std).csv")
@@ -220,6 +218,7 @@ p_drawer.draw("req-size (Byte)", f"delay={delay} parallel={pa}",
 
 drawIperf()
 
-drawDelays(1)
+drawDelays(parallel = 1)
+drawDelays(parallel = 4)
 
 drawParallel("1ms")

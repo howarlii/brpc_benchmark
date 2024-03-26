@@ -23,6 +23,16 @@ Streaming的设计意图在于C/S段建立一个流式数据通道，从而持�
 - 固定并发度、延迟，测试不同payload size下，不同方式的concurency/thourghput;
 - ~~固定payload size，测试不同并发下，不同方式的delay/thourghput;~~
 
+## 结论
+
+- `baidu_std`支持本文三种传输方式，throughput/latency表现也比hulu, grpc优异；
+- Streaming的方式throughput最高，但是建立新streaming通道的时间代价较高；
+- Attachment的方式在payload较大时throughput可以达到Streaming的50%，但胜在无需建立Streaming通道；
+
+## 遗留问题
+
+- 当`parallelism=8`时，attachment的方式在`req_size=180M`时throughput有异常上升；
+
 # Benchmark Result
 
 所有原始结果数据位于目录`./result/`。
@@ -52,7 +62,7 @@ Streaming的设计意图在于C/S段建立一个流式数据通道，从而持�
 ## Parallel
 保持`delay=1ms`，使用1/2/4个Client进行并发传输，总Throughput/Lantency vs Request Size数据如下：
 
-![delay=1ms](./result/figs/req-size_delay(1ms)_reqsz(256-256m)_paras_streamsz(8k)_prot(baidu_std).png)
+![delay=1ms](./result/figs/req-size_delay1ms_reqsz(256-256m)_paras_streamsz(8k)_prot(baidu_std).png)
 
 结果表示，并发调用对BRPC的throughput有一定的帮助，使用两个client进行通讯可以将throughput几乎翻倍，但当parallelism从2提升到4之后，对throughput的提升非常有限, 但RPC的latency却提升了。取具体数值进行分析：
 
@@ -61,13 +71,20 @@ Streaming的设计意图在于C/S段建立一个流式数据通道，从而持�
 | Throughput   | 263.0 (100%) | 473.2 (180%) | 870.4 (331%)  | 347.8 (100%) | 606.8 (174%) | 991.6 (285%) |
 | Latency      | 144.6 (100%) | 198.0 (137%) | 315.9 (218%)  | 127.0 (100%) | 168.8 (133%) | 263.6 (208%) |
 
+但是对于attachment，其throughput在`parallelism=8`时有异常的提升，原因未知。
 
-## Latency
-使用单个Client，设定`latency=0ms/1ms/10ms`，Throughput/Lantency vs Request Size数据如下：
+## Delay
+使用单个Client，设定`delay=0ms/1ms/10ms`，Throughput/Lantency vs Request Size数据如下：
+
+> 注意：这里的`delay`指使用tc设定的网络延迟，`latency`指rpc端到端的延迟。
 
 ![delay=1ms](./result/figs/req-size_delays_reqsz(256-256m)_para(1)_streamsz(8k)_prot(baidu_std).png)
 
-同时，结果显示，当lantency较大时，所有传输方式的throughput均有很大程度下降。理论上来说所有的协议均使用同一个channel，即同一个TCP连接，在latency增加时发送rpc/streaming的throughput不应该下降，暂时还未找到导致此现象的原因。
+同时，结果显示，当lantency较大时，所有传输方式的throughput均有很大程度下降。
+
+提高并发度之后，delay对throughput的影响一定幅度减少：
+![delay=1ms](./result/figs/req-size_delays_reqsz(256-256m)_para(4)_streamsz(8k)_prot(baidu_std).png)
+当parallelism=4时，delay=1ms和delay=0ms的throughput差距非常小，但是delay=10ms的throughput依旧有较大差距。
 
 
 ## Different Protocal
