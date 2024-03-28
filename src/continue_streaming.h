@@ -22,6 +22,11 @@ class ContinueStreamingSender {
   explicit ContinueStreamingSender(example::EchoService_Stub *stub, uint64_t msg_size)
       : stub_(stub), msg_size_(msg_size) {}
 
+  void setStreamingOption(size_t messages_in_batch, size_t max_buf_size) {
+    stream_option_.max_buf_size = max_buf_size;
+    stream_option_.messages_in_batch = messages_in_batch;
+  }
+
   auto getSentBytes() const { return sent_bytes_; }
 
   auto getRealBenchTime() const { return real_benchmark_time_s_; }
@@ -37,7 +42,7 @@ class ContinueStreamingSender {
     request.set_hash(data_hash);
     request.set_continue_streaming_size(msg_size_);
 
-    brpc::StreamOptions stream_options;
+    brpc::StreamOptions stream_options(stream_option_);
     auto handler = std::make_unique<StreamHandler>(&recv_seq_id_);
     stream_options.handler = handler.get();
     stream_options.messages_in_batch = 1;
@@ -123,6 +128,8 @@ class ContinueStreamingSender {
 
   uint64_t sent_bytes_{0};
   double real_benchmark_time_s_;
+
+  brpc::StreamOptions stream_option_;
 };
 
 class ContinueStreamRecvHandler : public brpc::StreamInputHandler {
@@ -146,7 +153,10 @@ class ContinueStreamRecvHandler : public brpc::StreamInputHandler {
     // LOG(INFO) << "Received from Stream=" << id << ": seq: " << seq_id_ << " size: " << size;
     butil::IOBuf stream_data;
     stream_data.append(reinterpret_cast<const char *>(&seq_id_), sizeof(int));
-    brpc::StreamWrite(id, stream_data);
+
+    if (brpc::StreamWrite(id, stream_data)) {
+      LOG(WARNING) << "Fail to write stream  id: " << id;
+    }
 
     return 0;
   }
@@ -155,7 +165,11 @@ class ContinueStreamRecvHandler : public brpc::StreamInputHandler {
     LOG(INFO) << "Stream=" << id << " has no data transmission for a while";
   }
 
-  void on_closed(brpc::StreamId id) final { std::unique_ptr<ContinueStreamRecvHandler> self_guard(this); }
+  void on_closed(brpc::StreamId id) final {
+    std::unique_ptr<ContinueStreamRecvHandler> self_guard(this);
+    LOG(INFO) << "Stream=" << id << " is closed";
+    // brpc::StreamClose(id);
+  }
 
  private:
   const example::EchoRequest request_;

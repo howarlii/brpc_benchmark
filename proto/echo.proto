@@ -30,6 +30,9 @@ message EchoRequest {
 
   required uint64 hash = 5;
   optional bytes data = 6;
+
+  optional int64 streaming_messages_in_batch = 10;
+  optional int64 streaming_max_buf_size = 11;
 };
 
 message EchoResponse {
@@ -42,6 +45,9 @@ message EchoResponse {
 
   required uint64 hash = 5;
   optional bytes data = 6;
+
+  optional int64 streaming_messages_in_batch = 10;
+  optional int64 streaming_max_buf_size = 11;
 };
 
 service EchoService {

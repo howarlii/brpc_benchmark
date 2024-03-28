@@ -58,6 +58,8 @@ class SingleStreamReceiver : public brpc::StreamInputHandler {
       LOG(WARNING) << fmt::format("QWQ request data hash not match!  data len: {} hash: {}", request_.streaming_size(),
                                   request_.hash());
     }
+
+    brpc::StreamClose(id);
   }
 
  private:
@@ -108,8 +110,12 @@ class EchoServiceImpl : public example::EchoService {
       brpc::StreamOptions stream_options;
       auto receiver = new ContinueStreamRecvHandler(*request);
       stream_options.handler = receiver;
-      // stream_options.messages_in_batch = 1 << 30;
-      // stream_options.max_buf_size = 1 << 30;
+      if (request->has_streaming_messages_in_batch()) {
+        stream_options.messages_in_batch = request->streaming_messages_in_batch();
+      }
+      if (request->has_streaming_max_buf_size()) {
+        stream_options.max_buf_size = request->streaming_max_buf_size();
+      }
 
       brpc::StreamId stream_id{brpc::INVALID_STREAM_ID};
       if (brpc::StreamAccept(&stream_id, *cntl, &stream_options) != 0) {

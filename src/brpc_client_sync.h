@@ -36,6 +36,7 @@ class Client {
                    std::chrono::milliseconds benchmark_time = kDefaultBenchmarkTime) {
     if (config_->use_continue_streaming) {
       ContinueStreamingSender sender(stub.get(), config_->req_size);
+      sender.setStreamingOption(config_->continue_stream_messages_in_batch, config_->continue_stream_max_buf_size);
       sender.run_continue_streaming(benchmark_time);
       real_benchmark_time_s_ = sender.getRealBenchTime();
       sent_bytes_ = sender.getSentBytes();
@@ -104,8 +105,8 @@ class Client {
 
       if (config_->use_single_streaming) {
         butil::IOBuf stream_data;
-        for (auto tot_size = 0; tot_size < req_size_; tot_size += config_->stream_single_msg_size) {
-          auto size = std::min(config_->stream_single_msg_size, req_size_ - tot_size);
+        for (auto tot_size = 0; tot_size < req_size_; tot_size += config_->single_stream_single_msg_size) {
+          auto size = std::min(config_->single_stream_single_msg_size, req_size_ - tot_size);
 
           stream_data.append(data.data() + tot_size, size);
           while (auto ret = brpc::StreamWrite(stream_id, stream_data)) {

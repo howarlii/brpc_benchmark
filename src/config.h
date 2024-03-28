@@ -21,7 +21,10 @@ struct BenchmarkConfig {
   bool use_single_streaming = false;    // Streaming, create a streaming every time
   bool use_continue_streaming = false;  // Continue streaming, a thread will create a streaming at
                                         // begining and use the that stream to send requests
-  int stream_single_msg_size = 8192;
+  int continue_stream_messages_in_batch = 128;
+  int continue_stream_max_buf_size = 2097152;
+
+  int single_stream_single_msg_size = 8192;
 
   // ===== channel settings =====
   bool use_parallel_channel = false;  // Whether to use parallel channel
@@ -63,7 +66,10 @@ DEFINE_bool(use_proto_bytes, default_config.use_proto_bytes, "Whether to use pro
 // ===== streaming settings =====
 DEFINE_bool(use_streaming, default_config.use_single_streaming, "Whether to use streaming");
 DEFINE_bool(use_continue_streaming, default_config.use_continue_streaming, "Whether to use continue streaming");
-DEFINE_int32(stream_client_msg_size, default_config.stream_single_msg_size, "Streaming message size");
+DEFINE_int32(continue_stream_messages_in_batch, default_config.continue_stream_messages_in_batch,
+             "BRPC streaming option");
+DEFINE_int32(continue_stream_max_buf_size, default_config.continue_stream_max_buf_size, "BRPC streaming option");
+DEFINE_int32(single_stream_single_msg_size, default_config.single_stream_single_msg_size, "Streaming message size");
 
 // ==== rpc protocol settings ====
 DEFINE_string(rpc_protocol, default_config.rpc_protocol, "Protocol type. Defined in src/brpc/options.proto");
@@ -90,7 +96,9 @@ inline BenchmarkConfig parseCommandLine(int argc, char **argv) {
   // ===== streaming settings =====
   config.use_single_streaming = FLAGS_use_streaming;
   config.use_continue_streaming = FLAGS_use_continue_streaming;
-  config.stream_single_msg_size = FLAGS_stream_client_msg_size;
+  config.continue_stream_messages_in_batch = FLAGS_continue_stream_messages_in_batch;
+  config.continue_stream_max_buf_size = FLAGS_continue_stream_max_buf_size;
+  config.single_stream_single_msg_size = FLAGS_single_stream_single_msg_size;
 
   // ===== rpc protocol settings =====
   config.rpc_protocol = FLAGS_rpc_protocol;

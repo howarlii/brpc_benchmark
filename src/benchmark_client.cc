@@ -249,7 +249,7 @@ class ResultArrayOutputer {
 void BenchmarkForParallel(std::string target_text, BenchmarkConfig config, int max_parallel = 50) {
   ResultArrayOutputer outer;
   target_text = fmt::format("{}_reqsz({})_para(1-{})_streamsz({})_prot({})", target_text, shortTheNum(config.req_size),
-                            max_parallel, shortTheNum(config.stream_single_msg_size), config.rpc_protocol);
+                            max_parallel, shortTheNum(config.single_stream_single_msg_size), config.rpc_protocol);
   LOG(INFO) << target_text;
   for (auto parallel = 1; parallel <= max_parallel && !brpc::IsAskedToQuit(); parallel += 4) {
     config.parallelism = parallel;
@@ -285,9 +285,10 @@ void BenchmarkForParallel(std::string target_text, BenchmarkConfig config, int m
 void BenchmarkForReqSize(std::string target_text, BenchmarkConfig config, int max_size = (1 << 30)) {
   ResultArrayOutputer outer;
   int min_size = 256;
-  target_text = fmt::format("{}_reqsz({}-{})_para({})_streamsz({})_prot({})", target_text, shortTheNum(min_size),
-                            shortTheNum(max_size), config.parallelism, shortTheNum(config.stream_single_msg_size),
-                            config.rpc_protocol);
+  target_text = fmt::format(
+      "{}_reqsz({}-{})_para({})_streamsz({})_prot({})_stream({},{})", target_text, shortTheNum(min_size),
+      shortTheNum(max_size), config.parallelism, shortTheNum(config.single_stream_single_msg_size), config.rpc_protocol,
+      shortTheNum(config.continue_stream_messages_in_batch), shortTheNum(config.continue_stream_max_buf_size));
   LOG(INFO) << target_text;
   // int test_gap = (max_size - min_size) / 40 + 1;
   auto test_gap = std::pow(static_cast<long double>(max_size) / min_size, 1.0 / 40);
@@ -322,17 +323,17 @@ void BenchmarkForReqSize(std::string target_text, BenchmarkConfig config, int ma
   outer.outputCsv(target_text, "req-size");
 }
 
-void BenchmarkForStreamingSize(std::string target_text, BenchmarkConfig config, int max_size = (1 << 13)) {
+void BenchmarkForStreamingSize(std::string target_text, BenchmarkConfig config, int max_msg_size = (1 << 13)) {
   ResultArrayOutputer outer;
   int min_size = 256;
   target_text = fmt::format("{}_reqsz({})_para({})_streamsz({}-{})_prot({})", target_text, shortTheNum(config.req_size),
-                            config.parallelism, shortTheNum(min_size), shortTheNum(config.stream_single_msg_size),
-                            config.rpc_protocol);
+                            config.parallelism, shortTheNum(min_size),
+                            shortTheNum(config.single_stream_single_msg_size), config.rpc_protocol);
 
   LOG(INFO) << target_text;
-  int test_gap = (max_size - min_size) / 20 + 1;
-  for (auto s_size = min_size; s_size <= max_size && !brpc::IsAskedToQuit(); s_size += test_gap) {
-    config.stream_single_msg_size = s_size;
+  int test_gap = (max_msg_size - min_size) / 20 + 1;
+  for (auto s_size = min_size; s_size <= max_msg_size && !brpc::IsAskedToQuit(); s_size += test_gap) {
+    config.single_stream_single_msg_size = s_size;
 
     ClientBenchmarker tester(config);
     tester.init();
@@ -418,15 +419,16 @@ int main(int argc, char *argv[]) {
   }
 
   if (FLAGS_for_streaming_size) {
+    auto max_msg_size = config.req_size;
     if (FLAGS_test_cstreaming) {
       config.use_continue_streaming = true;
-      BenchmarkForStreamingSize("cstreaming", config);
+      BenchmarkForStreamingSize("cstreaming", config, max_msg_size);
       config.use_continue_streaming = false;
     }
 
     if (FLAGS_test_sstreaming) {
       config.use_single_streaming = true;
-      BenchmarkForStreamingSize("cstreaming", config);
+      BenchmarkForStreamingSize("sstreaming", config, max_msg_size);
       config.use_single_streaming = false;
     }
   }

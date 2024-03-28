@@ -185,7 +185,47 @@ def drawParallel(delay):
     fig.suptitle(f"delay={delay} protocol=baidu_std")
     plt.tight_layout()
     plt.savefig(f'result/req-size_delay{delay}_reqsz(256-256m)_paras_streamsz(8k)_prot(baidu_std).png')
+    plt.close()
 
+def drawStreamOption(para, delay):
+    colors = ['b', 'r', 'g', 'y', 'm', 'c', 'k']
+    linestyles = ['-', '--', ':', '-.', '-', '--']
+
+    # Create a new figure and two subplots
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), height_ratios=[1, 1])
+
+    batch_size = ["1", "128", "1k"]
+    buf_size = ["2m", "32m"]
+    for i1 in range(len(buf_size)):
+        for i2 in range(len(batch_size)):
+            test_type = f"c-streaming-{delay}-p{para}-s{batch_size[i2]},{buf_size[i1]}"
+            if (test_type in datas) and ("speed" in datas[test_type]):
+                ax1.plot(x_axis[test_type], datas[test_type]["speed"],linestyle = linestyles[i2],  label=f"{test_type}", color=colors[i1])
+
+    buf_size = ["2m", "8m", "16m", "32m", "64m"]
+    for i in range(len(buf_size)):
+        test_type = f"c-streaming-{delay}-p{para}-s{128},{buf_size[i]}"
+        if("speed" in datas[test_type]):
+            ax2.plot(x_axis[test_type], datas[test_type]["speed"],linestyle = linestyles[1],  label=f"{test_type}", color=colors[i])
+
+    if(x_axis[test_type][-1] / x_axis[test_type][0] > 100):
+        ax1.set_xscale('log')
+        ax2.set_xscale('log')
+
+    ax1.set_ylabel('Throughput (MB/S)')
+    ax1.grid(True)
+    ax1.legend()
+    # .set_loc('center left')
+
+    ax2.set_xlabel("req-size (Byte)")
+    ax2.set_ylabel('Throughput (MB/S)')
+    ax2.grid(True)
+    ax2.legend()
+
+    fig.suptitle(f"delay={delay} protocol=baidu_std")
+    plt.tight_layout()
+    plt.savefig(f'result/req-size_delay{delay}_reqsz(256-256m)_para({para})_streamsz(8k)_prot(baidu_std)_streams.png')
+    plt.close()
 
 
 delays = ["0ms", "1ms", "10ms"]
@@ -193,21 +233,21 @@ parallel = ["1", "2", "4", "6", "8"]
 for delay in delays:
     readCsv(f"iperf-{delay}", f"result/{delay}/iperf3_res.csv")
     for pa in parallel:
-        readCsv(f"proto-{delay}-p{pa}", f"result/{delay}/brpc_req-size_proto_reqsz(256-256m)_para({pa})_streamsz(8k)_prot(baidu_std).csv")
-        readCsv(f"attachment-{delay}-p{pa}", f"result/{delay}/brpc_req-size_attachment_reqsz(256-256m)_para({pa})_streamsz(8k)_prot(baidu_std).csv")
-        readCsv(f"c-streaming-{delay}-p{pa}", f"result/{delay}/brpc_req-size_cstreaming_reqsz(256-256m)_para({pa})_streamsz(8k)_prot(baidu_std).csv")
+        readCsv(f"proto-{delay}-p{pa}", f"result/{delay}/brpc_req-size_proto_reqsz(256-256m)_para({pa})_streamsz(8k)_prot(baidu_std)_stream(128,2m).csv")
+        readCsv(f"attachment-{delay}-p{pa}", f"result/{delay}/brpc_req-size_attachment_reqsz(256-256m)_para({pa})_streamsz(8k)_prot(baidu_std)_stream(128,2m).csv")
+        readCsv(f"c-streaming-{delay}-p{pa}", f"result/{delay}/brpc_req-size_cstreaming_reqsz(256-256m)_para({pa})_streamsz(8k)_prot(baidu_std)_stream(128,2m).csv")
 
         p_drawer = DataDrawer()
         p_drawer.setData(f"proto-{delay}-p{pa}", "proto")
         p_drawer.setData(f"attachment-{delay}-p{pa}", "attachment")
         p_drawer.setData(f"c-streaming-{delay}-p{pa}", "c-streaming")
-        p_drawer.draw("req-size (Byte)", f"delay={delay} parallel={pa} protocol=baidu_std",
-                      f"req-size_delay{delay}_reqsz(256-256m)_para({pa})_streamsz(8k)_prot(baidu_std)")
+        # p_drawer.draw("req-size (Byte)", f"delay={delay} parallel={pa} protocol=baidu_std",
+        #               f"req-size_delay{delay}_reqsz(256-256m)_para({pa})_streamsz(8k)_prot(baidu_std)")
 
 delay = "1ms"
 pa = 1
-readCsv(f"proto-{delay}-p{pa}-h2:grpc", f"result/{delay}/brpc_req-size_proto_reqsz(256-256m)_para(1)_streamsz(8k)_prot(h2:grpc).csv")
-readCsv(f"proto-{delay}-p{pa}-hulu", f"result/{delay}/brpc_req-size_proto_reqsz(256-256m)_para(1)_streamsz(8k)_prot(hulu_pbrpc).csv")
+readCsv(f"proto-{delay}-p{pa}-h2:grpc", f"result/{delay}/brpc_req-size_proto_reqsz(256-256m)_para(1)_streamsz(8k)_prot(h2:grpc)_stream(128,2m).csv")
+readCsv(f"proto-{delay}-p{pa}-hulu", f"result/{delay}/brpc_req-size_proto_reqsz(256-256m)_para(1)_streamsz(8k)_prot(hulu_pbrpc)_stream(128,2m).csv")
 p_drawer = DataDrawer()
 p_drawer.setData(f"proto-{delay}-p{pa}", "baidu_std")
 p_drawer.setData(f"proto-{delay}-p{pa}-h2:grpc", "h2:grpc")
@@ -222,3 +262,18 @@ drawDelays(parallel = 1)
 drawDelays(parallel = 4)
 
 drawParallel("1ms")
+
+delay="1ms"
+pa=1
+readCsv(f"c-streaming-{delay}-p{pa}-s1,2m", f"result/{delay}/brpc_req-size_cstreaming_reqsz(256-256m)_para({pa})_streamsz(8k)_prot(baidu_std)_stream(1,2m).csv")
+readCsv(f"c-streaming-{delay}-p{pa}-s1,32m", f"result/{delay}/brpc_req-size_cstreaming_reqsz(256-256m)_para({pa})_streamsz(8k)_prot(baidu_std)_stream(1,32m).csv")
+readCsv(f"c-streaming-{delay}-p{pa}-s1k,2m", f"result/{delay}/brpc_req-size_cstreaming_reqsz(256-256m)_para({pa})_streamsz(8k)_prot(baidu_std)_stream(1k,2m).csv")
+readCsv(f"c-streaming-{delay}-p{pa}-s1k,32m", f"result/{delay}/brpc_req-size_cstreaming_reqsz(256-256m)_para({pa})_streamsz(8k)_prot(baidu_std)_stream(1k,32m).csv")
+readCsv(f"c-streaming-{delay}-p{pa}-s128,2m", f"result/{delay}/brpc_req-size_cstreaming_reqsz(256-256m)_para({pa})_streamsz(8k)_prot(baidu_std)_stream(128,2m).csv")
+readCsv(f"c-streaming-{delay}-p{pa}-s128,8m", f"result/{delay}/brpc_req-size_cstreaming_reqsz(256-256m)_para({pa})_streamsz(8k)_prot(baidu_std)_stream(128,8m).csv")
+readCsv(f"c-streaming-{delay}-p{pa}-s128,16m", f"result/{delay}/brpc_req-size_cstreaming_reqsz(256-256m)_para({pa})_streamsz(8k)_prot(baidu_std)_stream(128,16m).csv")
+readCsv(f"c-streaming-{delay}-p{pa}-s128,32m", f"result/{delay}/brpc_req-size_cstreaming_reqsz(256-256m)_para({pa})_streamsz(8k)_prot(baidu_std)_stream(128,32m).csv")
+readCsv(f"c-streaming-{delay}-p{pa}-s128,64m", f"result/{delay}/brpc_req-size_cstreaming_reqsz(256-256m)_para({pa})_streamsz(8k)_prot(baidu_std)_stream(128,64m).csv")
+
+
+drawStreamOption(para=1, delay="1ms")

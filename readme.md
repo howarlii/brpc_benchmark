@@ -1,4 +1,4 @@
-# BRPC Benchmarker
+# BRPC Benchmark
 
 测试BRPC使用不同的方式，传输大量binary数据的性能表现。
 
@@ -26,12 +26,13 @@ Streaming的设计意图在于C/S段建立一个流式数据通道，从而持�
 ## 结论
 
 - `baidu_std`支持本文三种传输方式，throughput/latency表现也比hulu, grpc优异；
-- Streaming的方式throughput最高，但是建立新streaming通道的时间代价较高；
 - Attachment的方式在payload较大时throughput可以达到Streaming的50%，但胜在无需建立Streaming通道；
+- Streaming的方式throughput最高，但是建立新streaming通道的时间代价较高；
+- 使用Streaming的方式时，适当提高`max_buf_size`可以显著提高throughput，测试中设置`max_buf_size=32M`即可达到最佳性能；单次发送的`IOBuffer`大小超过`max_buf_size`时会有巨大性能损失；
 
 ## 遗留问题
 
-- 当`parallelism=8`时，attachment的方式在`req_size=180M`时throughput有异常上升；
+- 当`parallelism=8`时，attachment的方式在`req_size=180M`时throughput有异常上升，原因暂不明确；
 
 # Benchmark Result
 
@@ -91,6 +92,29 @@ Streaming的设计意图在于C/S段建立一个流式数据通道，从而持�
 保持`delay=1ms`，使用1个Client进行传输，设置不同RPC protocol的情况下，Throughput/Lantency vs Request Size数据如下：
 
 ![delay=1ms parallel=1 prots](./result/figs/req-size_delay1ms_reqsz(256-256m)_para(1)_streamsz(8k)_prots.png)
+
+
+## Streaming Options
+
+BRPC的streaming存在若干optina，可能与性能有关的option有：
+
+```cpp
+// The max size of unconsumed data allowed at remote side.
+// If |max_buf_size| <= 0, there's no limit of buf size
+// default: 2097152 (2M)
+int max_buf_size;
+
+// Maximum messages in batch passed to handler->on_received_messages
+// default: 128
+size_t messages_in_batch;
+```
+
+注意：由于程序统计方式的问题，`messages_in_batch`数值过大会导致统计精度严重下降，测出的`throughput`数值偏小。下图中不同`messages_in_batch`的`throughput`变化并不显著，因此我认为，此变化是由误差导致的，`messages_in_batch`并不参与streaming的网络收发逻辑。
+
+对于`max_buf_size`，可以看到提高的`max_buf_size`可以显著提高`throughput`，在`max_buf_size=32M`时提升达到瓶颈。框架支持单次发送的`IOBuffer`size大于`max_buf_size`，但会有严重的性能损失。
+
+![delay=1ms parallel=1 streams](./result/figs/req-size_delay1ms_reqsz(256-256m)_para(1)_streamsz(8k)_prot(baidu_std)_streams.png)
+
 
 
 # Run The Benchmark
