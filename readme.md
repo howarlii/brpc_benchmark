@@ -47,7 +47,13 @@ Streaming的设计意图在于C/S段建立一个流式数据通道，从而持�
 
 ![iperf3](./result/figs/iperf3.png)
 
+注意：iperf3的parallel会开启多个TCP connection进行传输，而下列BRPC的测试中将只会启用一个TCP connection。因此对照的具体速率应当为：
 
+| Delay       | Throughput |
+| ---------- | -----------  |
+| 0ms        | 4332.478MB/S |
+| 1ms        | 1381.071MB/S |
+| 10ms       | 136.542MB/S |
 
 ## Request Size
 当`delay=1ms`时，单个Client的Throughput/Lantency vs Request Size数据如下：
