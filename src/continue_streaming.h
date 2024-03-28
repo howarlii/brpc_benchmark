@@ -155,7 +155,7 @@ class ContinueStreamRecvHandler : public brpc::StreamInputHandler {
     stream_data.append(reinterpret_cast<const char *>(&seq_id_), sizeof(int));
 
     if (brpc::StreamWrite(id, stream_data)) {
-      LOG(WARNING) << "Fail to write stream  id: " << id;
+      // LOG(WARNING) << "Fail to write stream  id: " << id;
     }
 
     return 0;
@@ -167,7 +167,7 @@ class ContinueStreamRecvHandler : public brpc::StreamInputHandler {
 
   void on_closed(brpc::StreamId id) final {
     std::unique_ptr<ContinueStreamRecvHandler> self_guard(this);
-    LOG(INFO) << "Stream=" << id << " is closed";
+    // LOG(INFO) << "Stream=" << id << " is closed";
     // brpc::StreamClose(id);
   }
 
