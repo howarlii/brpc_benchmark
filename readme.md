@@ -5,11 +5,11 @@
 测试不同的传输方式包括：
 - 以bytes data的形式放在proto中；
 - 以attachment的形式放在cntl中；
-- 以streaming的方式；
+- 以BRPC streaming的方式；
 
 其中attachment会绕过protobuf的序列化/反序列化和BRPC框架的压缩过程，[详细说明见官方文档](https://brpc.apache.org/docs/client/basics/#attachment)。
 
-其中streaming可以参考[brpc对streaming的描述](https://brpc.apache.org/docs/client/streaming-rpc/)。简单来说，一个streaming由一次RPC触发而建立，client/server均可以往streaming中持续读/写数据。
+其中BRPC streaming可以参考[brpc对streaming的描述](https://brpc.apache.org/docs/client/streaming-rpc/)。简单来说，一个streaming由一次RPC触发而建立，client/server均可以往streaming中持续读/写数据。
 
 Streaming的设计意图在于C/S段建立一个流式数据通道，从而持续的收发数据，而且创建一个新的streaming的代价较高，因此本文对streaming的测试方式有两种：
 - Single-streaming: 不复用streaming，每次重新创建新的streaming，发送完payload之后关闭streaming；
@@ -29,6 +29,13 @@ Streaming的设计意图在于C/S段建立一个流式数据通道，从而持�
 - Attachment的方式在payload较大时throughput可以达到Streaming的50%，但胜在无需建立Streaming通道；
 - Streaming的方式throughput最高，但是建立新streaming通道的时间代价较高；
 - 使用Streaming的方式时，适当提高`max_buf_size`可以显著提高throughput，测试中设置`max_buf_size=32M`即可达到最佳性能；单次发送的`IOBuffer`大小超过`max_buf_size`时会有巨大性能损失；
+
+### 使用BRPC Streaming的Tips
+
+- 使用Streaming的方式时，适当提高`max_buf_size`可以显著提高throughput；单次发送的`IOBuffer`大小超过`max_buf_size`时会有巨大性能损失；
+- Streaming保证message的边界和顺序，server端`on_recieve`被调用时可能同时传入多组数据（由`messages_in_batch`控制，最大传入组数不超过此数值）；
+- 从测试结果看来，`messages_in_batch`并不会控制streaming收发逻辑；
+- 发送massgae时，请保证`StreamWrite()`传入的`butil::IOBuf`非空，**传入空的、未初始化的`butil::IOBuf`为未定义行为**；
 
 ## 遗留问题
 
