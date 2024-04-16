@@ -36,6 +36,7 @@ Streaming的设计意图在于C/S段建立一个流式数据通道，从而持�
 - Streaming保证message的边界和顺序，server端`on_recieve`被调用时可能同时传入多组数据（由`messages_in_batch`控制，最大传入组数不超过此数值）；
 - 从测试结果看来，`messages_in_batch`并不会控制streaming收发逻辑；
 - 发送massgae时，请保证`StreamWrite()`传入的`butil::IOBuf`非空，**传入空的、未初始化的`butil::IOBuf`为未定义行为**；
+- `brpc::StreamClose()`是非阻塞的，BRPC不保证调用此函数后streaming已经被closed，因此不能马上销毁对应的handler，**建议handler在`on_close()`时销毁它自己**；
 
 ## 遗留问题
 
