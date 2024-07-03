@@ -23,7 +23,7 @@ sha256sum_func() {
         echo -e "expect-sha256 ${SHA256SUM} \nactual-sha256 $sha256"
         return 1
     fi
-    
+
 
     return 0
 }
@@ -40,7 +40,7 @@ download_func() {
         exit 1
     fi
     if [ -z "$DOWNLOAD_URL" ]; then
-        echo "Error: No download url specified for $FILENAME"
+        echo "Error: No download url specified for $FILENAME $DOWNLOAD_URL"
         exit 1
     fi
     if [ -z "$DESC_DIR" ]; then

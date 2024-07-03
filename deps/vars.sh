@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #export DEPS_INSTALL_DIR=${DEPS_DIR}/install
-export DEPS_INSTALL_DIR=/opt/install # install on /opt/install folder
+export DEPS_INSTALL_DIR=/opt/install_brpc # install on /opt/install folder
 export DEPS_SOURCE_DIR=${DEPS_DIR}/src
 export DEPS_PATCH_DIR=${DEPS_DIR}/patches
 
@@ -71,11 +71,17 @@ GFLAGS_NAME="gflags-2.2.2.tar.gz"
 GFLAGS_SOURCE="gflags-2.2.2"
 GFLAGS_SHA256="865a89ca0e9c78a390de2935ca8f3d1416893a767786953e5ee9d4a821573ec2"
 
+# leveldb
+LEVELDB_DOWNLOAD="https://github.com/google/leveldb/archive/refs/tags/1.23.tar.gz"
+LEVELDB_NAME="leveldb-1.23.tar.gz"
+LEVELDB_SOURCE="leveldb-1.23"
+LEVELDB_SHA256="9a37f8a6174f09bd622bc723b55881dc541cd50747cbd08831c2a82d620f6d76"
+
 # brpc: protobuf, gflags, leveldb
-BRPC_DOWNLOAD="https://github.com/apache/brpc/archive/refs/tags/1.6.0.tar.gz"
-BRPC_NAME="brpc-1.6.0.tar.gz"
-BRPC_SOURCE="brpc-1.6.0"
-BRPC_SHA256="d286d520ec4d317180d91ea3970494c1b8319c8867229e5c4784998c4536718f"
+BRPC_DOWNLOAD="https://github.com/apache/brpc/archive/refs/tags/1.9.0.tar.gz"
+BRPC_NAME="brpc-1.9.0.tar.gz"
+BRPC_SOURCE="brpc-1.9.0"
+BRPC_SHA256="85856da0216773e1296834116f69f9e80007b7ff421db3be5c9d1890ecfaea74"
 
 # TBB
 TBB_DOWNLOAD="https://github.com/oneapi-src/oneTBB/archive/refs/tags/v2021.8.0.tar.gz"
@@ -85,7 +91,7 @@ TBB_SHA256="eee380323bb7ce864355ed9431f85c43955faaae9e9bce35c62b372d7ffd9f8b"
 
 
 # ALL DEPS
-DEPS_ARCHIVES_DOWNLOAD="ABSEIL_CPP BACKWARD_CPP PROTOBUF BOOST DOUBLE_CONVERSION FMTLIB SPDLOG GTEST GLOG GFLAGS LIBEVENT FOLLY LEVELDB BRPC TBB HDRHISTOGRAM ETCD_CPP_API"
+DEPS_ARCHIVES_DOWNLOAD="ABSEIL_CPP BACKWARD_CPP PROTOBUF BOOST FMTLIB GTEST GLOG GFLAGS LEVELDB BRPC TBB"
 
 # grpc
 GRPC_REPO="https://github.com/grpc/grpc.git"

@@ -54,3 +54,16 @@ service EchoService {
   rpc Echo(EchoRequest) returns (EchoResponse);
   rpc AskEcho(EchoRequest) returns (EchoResponse);
 };
+
+message EmptyMsg {
+  optional string msg = 1;
+};
+
+service StreamTestService {
+  rpc Rpc(EmptyMsg) returns (EmptyMsg);
+  rpc StreamRpc(EmptyMsg) returns (EmptyMsg);
+};
+service RPCTestService {
+  rpc Rpc(EmptyMsg) returns (EmptyMsg);
+  rpc StreamRpc(EmptyMsg) returns (EmptyMsg);
+};

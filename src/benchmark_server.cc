@@ -30,9 +30,9 @@
 #include "proto/echo.pb.h"
 #include "util.h"
 
-class SingleStreamReceiver : public brpc::StreamInputHandler {
+class RepeaterStreamReceiver : public brpc::StreamInputHandler {
  public:
-  explicit SingleStreamReceiver(example::EchoRequest request) : request_(std::move(request)) {
+  explicit RepeaterStreamReceiver(example::EchoRequest request) : request_(std::move(request)) {
     data_.reserve(request_.streaming_size());
   }
 
@@ -49,7 +49,7 @@ class SingleStreamReceiver : public brpc::StreamInputHandler {
   }
 
   void on_closed(brpc::StreamId id) final {
-    std::unique_ptr<SingleStreamReceiver> self_guard(this);
+    std::unique_ptr<RepeaterStreamReceiver> self_guard(this);
     if (data_.size() != request_.streaming_size()) {
       LOG(WARNING) << fmt::format("QWQ request data size not match!  real len: {}, expect length:{}", data_.size(),
                                   request_.streaming_size());
@@ -87,7 +87,7 @@ class EchoServiceImpl : public example::EchoService {
 
     if (request->has_streaming_size()) {
       brpc::StreamOptions stream_options;
-      auto receiver = new SingleStreamReceiver(*request);
+      auto receiver = new RepeaterStreamReceiver(*request);
       stream_options.handler = receiver;
       stream_options.messages_in_batch = 1 << 30;
       stream_options.max_buf_size = 1 << 30;

@@ -37,12 +37,11 @@ echo "Deps are installed in DEPS_INSTALL_DIR: ${DEPS_INSTALL_DIR}"
 # setup toolchain
 export CC=clang
 export CXX=clang++
-export PARALLEL=12
+export PARALLEL=120
 CMAKE_GENERATOR=Ninja
 
 # TODO(xxx): Automatically check cpu architecture
-# Temporary code to compile folly using AVX instruction
-source ${DEPS_SOURCE_DIR}/${VELOX_SOURCE}/scripts/setup-helper-functions.sh
+source ${DEPS_DIR}/setup-helper-functions.sh
 CPU_TARGET="unknown"
 COMPILER_FLAGS=\"$(get_cxx_flags $CPU_TARGET)\"
 
@@ -95,7 +94,7 @@ build_abseil_cpp() {
 build_backward_cpp() {
     check_if_source_exist ${BACKWARD_CPP_SOURCE}
     cd ${DEPS_SOURCE_DIR}/${BACKWARD_CPP_SOURCE}
-    
+
     mkdir -p ${BUILD_DIR}
     cd ${BUILD_DIR}
     bash -c "cmake ${COMMON_CMAKE_FLAGS} .."
@@ -213,24 +212,6 @@ build_libevent() {
     make -j ${PARALLEL} install
 }
 
-# folly
-build_folly() {
-    check_if_source_exist ${FOLLY_SOURCE}
-    cd ${DEPS_SOURCE_DIR}/${FOLLY_SOURCE}
-    mkdir -p ${BUILD_DIR}
-    cd ${BUILD_DIR}
-    bash -c "cmake $COMMON_CMAKE_FLAGS \
-        -DGFLAGS_USE_TARGET_NAMESPACE=TRUE \
-        -DBoost_USE_STATIC_RUNTIME=ON \
-        -DBOOST_LINK_STATIC=ON \
-        -DBUILD_TESTS=OFF \
-        -DGFLAGS_NOTHREADS=OFF \
-        -DFOLLY_HAVE_INT128_T=ON \
-        -DCXX_STD="c++20" \
-        .."
-    make -j ${PARALLEL} install
-}
-
 # leveldb
 build_leveldb() {
     check_if_source_exist ${LEVELDB_SOURCE}
@@ -259,42 +240,6 @@ build_brpc() {
     make -j ${PARALLEL} install
 }
 
-# arrow
-build_arrow() {
-    check_if_source_exist ${ARROW_SOURCE}
-    cd ${DEPS_SOURCE_DIR}/${ARROW_SOURCE}/cpp
-    mkdir -p ${BUILD_DIR}
-    cd ${BUILD_DIR}
-
-    # note: AWS-centos has openssl as shared lib, please set this option on to make it build.
-    bash -c "cmake -G${CMAKE_GENERATOR} ${COMMON_CMAKE_FLAGS} \
-        -DBUILD_WARNING_LEVEL=PRODUCTION \
-        -DARROW_ALTIVEC=OFF \
-        -DARROW_DEPENDENCY_USE_SHARED=OFF \
-        -DARROW_USE_CCACHE=ON -DARROW_BOOST_USE_SHARED=OFF -DARROW_BUILD_SHARED=OFF \
-        -DARROW_BUILD_STATIC=ON -DARROW_COMPUTE=ON -DARROW_CSV=ON -DARROW_IPC=ON -DARROW_JEMALLOC=OFF  \
-        -DARROW_JSON=OFF -DARROW_PARQUET=ON -DARROW_SIMD_LEVEL=NONE -DARROW_RUNTIME_SIMD_LEVEL=NONE  \
-        -DARROW_WITH_BROTLI=OFF \
-        -DARROW_WITH_LZ4=ON -Dlz4_SOURCE=BUNDLED -DARROW_WITH_PROTOBUF=OFF -DARROW_WITH_RAPIDJSON=OFF \
-        -DARROW_WITH_SNAPPY=ON -DSnappy_SOURCE=BUNDLED -DARROW_WITH_ZLIB=ON -DZLIB_SOURCE=BUNDLED \
-        -DARROW_WITH_ZSTD=ON -Dzstd_SOURCE=BUNDLED -DThrift_SOURCE=BUNDLED -DBOOST_ROOT=${DEPS_INSTALL_DIR}  \
-        -DARROW_WITH_RE2=OFF \
-        -DARROW_WITH_UTF8PROC=OFF -DARROW_BUILD_BENCHMARKS=OFF -DARROW_BUILD_EXAMPLES=OFF  \
-        -DARROW_BUILD_INTEGRATION=OFF \
-        -DARROW_CSV=ON \
-        -DARROW_FILESYSTEM=ON \
-        -DARROW_GCS=ON \
-        -DARROW_HDFS=ON \
-        -DARROW_PARQUET=ON \
-        -DARROW_S3=ON \
-        -DARROW_BUILD_UTILITIES=ON -DARROW_BUILD_TESTS=OFF -DARROW_ENABLE_TIMING_TESTS=OFF  \
-        -DARROW_FUZZING=OFF \
-	-DARROW_OPENSSL_USE_SHARED=ON \
-        .."
-    cmake --build . --config Release -- -j $PARALLEL
-    cmake --install .
-}
-
 # tbb
 build_tbb() {
     check_if_source_exist ${TBB_SOURCE}
@@ -318,13 +263,6 @@ build_hdrHistogram() {
      -DHDR_HISTOGRAM_BUILD_PROGRAMS=OFF \
      .."
     make -j ${PARALLEL} install
-}    
-
-#Velox
-build_velox() {
-    check_if_source_exist ${VELOX_SOURCE}
-    cd ${DEPS_SOURCE_DIR}/${VELOX_SOURCE}
-    #bash -c "./scripts/setup-ubuntu.sh"
 }
 
 build_grpc(){
@@ -345,39 +283,19 @@ build_grpc(){
     make -j ${PARALLEL} install
 }
 
-# etcd-cpp-apiv3
-build_etcd_cpp_api() {
-    check_if_source_exist ${ETCD_CPP_API_SOURCE}
-    cd ${DEPS_SOURCE_DIR}/${ETCD_CPP_API_SOURCE}
-    mkdir -p ${BUILD_DIR}
-    cd ${BUILD_DIR}
-    bash -c "cmake ${COMMON_CMAKE_FLAGS}  \
-     -DBUILD_ETCD_CORE_ONLY=ON \
-     -DETCD_W_STRICT=OFF \
-     -DBUILD_SHARED_LIBS=ON \
-     -DETCD_CMAKE_CXX_STANDARD=20 \
-    .."
-    make -j ${PARALLEL} install
-}
-
 build_abseil_cpp
 build_backward_cpp
 build_protobuf
 build_boost
-build_double_conversion
 build_fmtlib
 # build_spdlog
 build_gtest
 build_gflags
 build_glog
-build_libevent
-build_folly
+# build_libevent
 build_leveldb
-build_arrow
 build_tbb
-build_hdrHistogram
-build_velox
+# build_hdrHistogram
 build_grpc
 build_brpc
-build_etcd_cpp_api
 echo "Finished to build all dependencies"
